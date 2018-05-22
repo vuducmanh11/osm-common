@@ -33,10 +33,10 @@ class DbMemory(DbBase):
 
     def get_list(self, table, filter={}):
         try:
-            l = []
+            result = []
             for _, row in self._find(table, self._format_filter(filter)):
-                l.append(deepcopy(row))
-            return l
+                result.append(deepcopy(row))
+            return result
         except DbException:
             raise
         except Exception as e:  # TODO refine
@@ -44,17 +44,17 @@ class DbMemory(DbBase):
 
     def get_one(self, table, filter={}, fail_on_empty=True, fail_on_more=True):
         try:
-            l = None
+            result = None
             for _, row in self._find(table, self._format_filter(filter)):
                 if not fail_on_more:
                     return deepcopy(row)
-                if l:
+                if result:
                     raise DbException("Found more than one entry with filter='{}'".format(filter),
                                       HTTPStatus.CONFLICT.value)
-                l = row
-            if not l and fail_on_empty:
+                result = row
+            if not result and fail_on_empty:
                 raise DbException("Not found entry with filter='{}'".format(filter), HTTPStatus.NOT_FOUND)
-            return deepcopy(l)
+            return deepcopy(result)
         except Exception as e:  # TODO refine
             raise DbException(str(e))
 

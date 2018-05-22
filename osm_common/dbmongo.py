@@ -86,7 +86,7 @@ class DbMongo(DbBase):
                 dot_index = query_k.rfind(".")
                 if dot_index > 1 and query_k[dot_index+1:] in ("eq", "ne", "gt", "gte", "lt", "lte", "cont",
                                                                "ncont", "neq"):
-                    operator = "$" + query_k[dot_index+1:]
+                    operator = "$" + query_k[dot_index + 1:]
                     if operator == "$neq":
                         operator = "$ne"
                     k = query_k[:dot_index]
@@ -132,13 +132,13 @@ class DbMongo(DbBase):
 
     def get_list(self, table, filter={}):
         try:
-            l = []
+            result = []
             collection = self.db[table]
             db_filter = self._format_filter(filter)
             rows = collection.find(db_filter)
             for row in rows:
-                l.append(row)
-            return l
+                result.append(row)
+            return result
         except DbException:
             raise
         except Exception as e:  # TODO refine

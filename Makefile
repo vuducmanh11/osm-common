@@ -1,4 +1,6 @@
 
+all: clean package
+
 clean:
 	rm -rf dist deb_dist .build osm_common-*.tar.gz osm_common.egg-info eggs
 
@@ -10,5 +12,3 @@ package:
 	cd deb_dist/osm-common*/  && dpkg-buildpackage -rfakeroot -uc -us
 	mkdir -p .build
 	cp deb_dist/python3-osm-common*.deb .build/
-
-

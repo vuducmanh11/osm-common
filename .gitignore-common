@@ -32,4 +32,6 @@ osm_common/test/temp
 build
 dist
 *.egg-info
+*.egg-info
+.eggs
 
