@@ -10,7 +10,7 @@ class MsgException(Exception):
     Base Exception class for all msgXXXX exceptions
     """
 
-    def __init__(self, message, http_code=HTTPStatus.INTERNAL_SERVER_ERROR):
+    def __init__(self, message, http_code=HTTPStatus.SERVICE_UNAVAILABLE):
         """
         General exception
         :param message:  descriptive text
