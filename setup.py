@@ -32,7 +32,7 @@ setup(
         'pymongo',
         'aiokafka',
         'PyYAML',
-        'pip',
+        # 'pip',
     ],
 )
 
