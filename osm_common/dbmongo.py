@@ -76,8 +76,32 @@ class DbMongo(DbBase):
         """
         Translate query string filter into mongo database filter
         :param q_filter: Query string content. Follows SOL005 section 4.3.2 guidelines, with the follow extensions and
-        differences: It accpept ".nq" (not equal) in addition to ".neq".
-        For arrays if get an item with exact matching. For partial matching, use the special work ".ANYINDEX.".
+        differences:
+            It accept ".nq" (not equal) in addition to ".neq".
+            For arrays you can specify index (concrete index must match), nothing (any index may match) or 'ANYINDEX'
+            (two or more matches applies for the same array element). Examples:
+                with database register: {A: [{B: 1, C: 2}, {B: 6, C: 9}]}
+                query 'A.B=6' matches because array A contains one element with B equal to 6
+                query 'A.0.B=6' does no match because index 0 of array A contains B with value 1, but not 6
+                query 'A.B=6&A.C=2' matches because one element of array matches B=6 and other matchesC=2
+                query 'A.ANYINDEX.B=6&A.ANYINDEX.C=2' does not match because it is needed the same element of the
+                    array matching both
+
+        Examples of translations from SOL005 to  >> mongo  # comment
+            A=B; A.eq=B         >> A: B             # must contain key A and equal to B or be a list that contains B
+            A.cont=B            >> A: B
+            A=B&A=C; A=B,C      >> A: {$in: [B, C]} # must contain key A and equal to B or C or be a list that contains
+                # B or C
+            A.cont=B&A.cont=C; A.cont=B,C  >> A: {$in: [B, C]}
+            A.ncont=B           >> A: {$nin: B}     # must not contain key A or if present not equal to B or if a list,
+                # it must not not contain B
+            A.ncont=B,C; A.ncont=B&A.ncont=C    >> A: {$nin: [B,C]}     # must not contain key A or if present not equal
+                # neither B nor C; or if a list, it must not contain neither B nor C
+            A.ne=B&A.ne=C; A.ne=B,C             >> A: {$nin: [B, C]}
+            A.gt=B              >> A: {$gt: B}      # must contain key A and greater than B
+            A.ne=B; A.neq=B         >> A: {$ne: B}          # must not contain key A or if present not equal to B, or if
+                # an array not contain B
+            A.ANYINDEX.B=C          >> A: {$elemMatch: {B=C}
         :return: database mongo filter
         """
         try:
@@ -114,7 +138,7 @@ class DbMongo(DbBase):
                 else:
                     db_v = {operator: v}
 
-                # process the ANYINDEX word at k
+                # process the ANYINDEX word at k.
                 kleft, _, kright = k.rpartition(".ANYINDEX.")
                 while kleft:
                     k = kleft
