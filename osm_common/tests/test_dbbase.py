@@ -1,7 +1,7 @@
 import http
 import pytest
-
-from osm_common.dbbase import DbBase, DbException
+import unittest
+from osm_common.dbbase import DbBase, DbException, deep_update
 
 
 def exception_message(message):
@@ -60,3 +60,104 @@ def test_del_one(db_base):
         db_base.del_one(None, None, None)
     assert str(excinfo.value).startswith(exception_message("Method 'del_one' not implemented"))
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
+
+
+class TestDeepUpdate(unittest.TestCase):
+    def test_update_dict(self):
+        # Original, patch, expected result
+        TEST = (
+            ({"a": "b"}, {"a": "c"}, {"a": "c"}),
+            ({"a": "b"}, {"b": "c"}, {"a": "b", "b": "c"}),
+            ({"a": "b"}, {"a": None}, {}),
+            ({"a": "b", "b": "c"}, {"a": None}, {"b": "c"}),
+            ({"a": ["b"]}, {"a": "c"}, {"a": "c"}),
+            ({"a": "c"}, {"a": ["b"]}, {"a": ["b"]}),
+            ({"a": {"b": "c"}}, {"a": {"b": "d", "c": None}}, {"a": {"b": "d"}}),
+            ({"a": [{"b": "c"}]}, {"a": [1]}, {"a": [1]}),
+            ({1: ["a", "b"]}, {1: ["c", "d"]}, {1: ["c", "d"]}),
+            ({1: {"a": "b"}}, {1: ["c"]}, {1: ["c"]}),
+            ({1: {"a": "foo"}}, {1: None}, {}),
+            ({1: {"a": "foo"}}, {1: "bar"}, {1: "bar"}),
+            ({"e": None}, {"a": 1}, {"e": None, "a": 1}),
+            ({1: [1, 2]}, {1: {"a": "b", "c": None}}, {1: {"a": "b"}}),
+            ({}, {"a": {"bb": {"ccc": None}}}, {"a": {"bb": {}}}),
+        )
+        for t in TEST:
+            deep_update(t[0], t[1])
+            self.assertEqual(t[0], t[2])
+        # test deepcopy is done. So that original dictionary does not reference the pach
+        test_original = {1: {"a": "b"}}
+        test_patch = {1: {"c": {"d": "e"}}}
+        test_result = {1: {"a": "b", "c": {"d": "e"}}}
+        deep_update(test_original, test_patch)
+        self.assertEqual(test_original, test_result)
+        test_patch[1]["c"]["f"] = "edition of patch, must not modify original"
+        self.assertEqual(test_original, test_result)
+
+    def test_update_array(self):
+        # This TEST contains a list with the the Original, patch, and expected result
+        TEST = (
+            # delete all instances of "a"/"d"
+            ({"A": ["a", "b", "a"]}, {"A": {"$a": None}}, {"A": ["b"]}),
+            ({"A": ["a", "b", "a"]}, {"A": {"$d": None}}, {"A": ["a", "b", "a"]}),
+            # delete and insert at 0
+            ({"A": ["a", "b", "c"]}, {"A": {"$b": None, "$+[0]": "b"}}, {"A": ["b", "a", "c"]}),
+            # delete and edit
+            ({"A": ["a", "b", "a"]}, {"A": {"$a": None, "$[1]": {"c": "d"}}}, {"A": [{"c": "d"}]}),
+            # insert if not exist
+            ({"A": ["a", "b", "c"]}, {"A": {"$+b": "b"}}, {"A": ["a", "b", "c"]}),
+            ({"A": ["a", "b", "c"]}, {"A": {"$+d": "f"}}, {"A": ["a", "b", "c", "f"]}),
+            # edit by filter
+            ({"A": ["a", "b", "a"]}, {"A": {"$b": {"c": "d"}}}, {"A": ["a", {"c": "d"}, "a"]}),
+            ({"A": ["a", "b", "a"]}, {"A": {"$b": None, "$+[0]": "b", "$+": "c"}}, {"A": ["b", "a", "a", "c"]}),
+            ({"A": ["a", "b", "a"]}, {"A": {"$c": None}}, {"A": ["a", "b", "a"]}),
+            # index deletion out of range
+            ({"A": ["a", "b", "a"]}, {"A": {"$[5]": None}}, {"A": ["a", "b", "a"]}),
+            # nested array->dict
+            ({"A": ["a", "b", {"id": "1", "c": {"d": 2}}]}, {"A": {"$id: '1'": {"h": None, "c": {"d": "e", "f": "g"}}}},
+             {"A": ["a", "b", {"id": "1", "c": {"d": "e", "f": "g"}}]}),
+            ({"A": [{"id": 1, "c": {"d": 2}}, {"id": 1, "c": {"f": []}}]},
+             {"A": {"$id: 1": {"h": None, "c": {"d": "e", "f": "g"}}}},
+             {"A": [{"id": 1, "c": {"d": "e", "f": "g"}}, {"id": 1, "c": {"d": "e", "f": "g"}}]}),
+            # nested array->array
+            ({"A": ["a", "b", ["a", "b"]]}, {"A": {"$b": None, "$[2]": {"$b": {}, "$+": "c"}}},
+             {"A": ["a", ["a", {}, "c"]]}),
+            # types str and int different, so not found
+            ({"A": ["a", {"id": "1", "c": "d"}]}, {"A": {"$id: 1": {"c": "e"}}}, {"A": ["a", {"id": "1", "c": "d"}]}),
+
+        )
+        for t in TEST:
+            print(t)
+            deep_update(t[0], t[1])
+            self.assertEqual(t[0], t[2])
+
+    def test_update_badformat(self):
+        # This TEST contains original, incorrect patch and #TODO text that must be present
+        TEST = (
+            # conflict, index 0 is edited twice
+            ({"A": ["a", "b", "a"]}, {"A": {"$a": None, "$[0]": {"c": "d"}}}),
+            # conflict, two insertions at same index
+            ({"A": ["a", "b", "a"]}, {"A": {"$[1]": "c", "$[-2]": "d"}}),
+            ({"A": ["a", "b", "a"]}, {"A": {"$[1]": "c", "$[+1]": "d"}}),
+            # bad format keys with and without $
+            ({"A": ["a", "b", "a"]}, {"A": {"$b": {"c": "d"}, "c": 3}}),
+            # bad format empty $ and yaml incorrect
+            ({"A": ["a", "b", "a"]}, {"A": {"$": 3}}),
+            ({"A": ["a", "b", "a"]}, {"A": {"$a: b: c": 3}}),
+            ({"A": ["a", "b", "a"]}, {"A": {"$a: b, c: d": 3}}),
+            # insertion of None
+            ({"A": ["a", "b", "a"]}, {"A": {"$+": None}}),
+            # Not found, insertion of None
+            ({"A": ["a", "b", "a"]}, {"A": {"$+c": None}}),
+            # index edition out of range
+            ({"A": ["a", "b", "a"]}, {"A": {"$[5]": 6}}),
+            # conflict, two editions on index 2
+            ({"A": ["a", {"id": "1", "c": "d"}]}, {"A": {"$id: '1'": {"c": "e"}, "$c: d": {"c": "f"}}}),
+        )
+        for t in TEST:
+            print(t)
+            self.assertRaises(DbException, deep_update, t[0], t[1])
+            try:
+                deep_update(t[0], t[1])
+            except DbException as e:
+                print(e)
