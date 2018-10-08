@@ -1,3 +1,20 @@
+# -*- coding: utf-8 -*-
+
+# Copyright 2018 Telefonica S.A.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import logging
 from pymongo import MongoClient, errors
@@ -18,14 +35,15 @@ __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 #                 return call(*args, **kwargs)
 #             except pymongo.AutoReconnect as e:
 #                 if retry == 4:
-#                     raise DbException(str(e))
+#                     raise DbException(e)
 #                 sleep(retry)
 #     return _retry_mongocall
 
 
 def deep_update(to_update, update_with):
     """
-    Update 'to_update' dict with the content 'update_with' dict recursively
+    Similar to deepcopy but recursively with nested dictionaries. 'to_update' dict is updated with a content copy of
+    'update_with' dict recursively
     :param to_update: must be a dictionary to be modified
     :param update_with: must be a dictionary. It is not changed
     :return: to_update
@@ -43,10 +61,17 @@ class DbMongo(DbBase):
     conn_initial_timout = 120
     conn_timout = 10
 
-    def __init__(self, logger_name='db'):
-        self.logger = logging.getLogger(logger_name)
+    def __init__(self, logger_name='db', master_password=None):
+        super().__init__(logger_name, master_password)
+        self.client = None
+        self.db = None
 
     def db_connect(self, config):
+        """
+        Connect to database
+        :param config: Configuration of database
+        :return: None or raises DbException on error
+        """
         try:
             if "logger_name" in config:
                 self.logger = logging.getLogger(config["logger_name"])
@@ -66,15 +91,12 @@ class DbMongo(DbBase):
                     self.logger.info("Waiting to database up {}".format(e))
                     sleep(2)
         except errors.PyMongoError as e:
-            raise DbException(str(e))
-
-    def db_disconnect(self):
-        pass  # TODO
+            raise DbException(e)
 
     @staticmethod
     def _format_filter(q_filter):
         """
-        Translate query string filter into mongo database filter
+        Translate query string q_filter into mongo database filter
         :param q_filter: Query string content. Follows SOL005 section 4.3.2 guidelines, with the follow extensions and
         differences:
             It accept ".nq" (not equal) in addition to ".neq".
@@ -106,6 +128,8 @@ class DbMongo(DbBase):
         """
         try:
             db_filter = {}
+            if not q_filter:
+                return db_filter
             for query_k, query_v in q_filter.items():
                 dot_index = query_k.rfind(".")
                 if dot_index > 1 and query_k[dot_index+1:] in ("eq", "ne", "gt", "gte", "lt", "lte", "cont",
@@ -154,11 +178,17 @@ class DbMongo(DbBase):
             raise DbException("Invalid query string filter at {}:{}. Error: {}".format(query_k, v, e),
                               http_code=HTTPStatus.BAD_REQUEST)
 
-    def get_list(self, table, filter={}):
+    def get_list(self, table, q_filter=None):
+        """
+        Obtain a list of entries matching q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :return: a list (can be empty) with the found entries. Raises DbException on error
+        """
         try:
             result = []
             collection = self.db[table]
-            db_filter = self._format_filter(filter)
+            db_filter = self._format_filter(q_filter)
             rows = collection.find(db_filter)
             for row in rows:
                 result.append(row)
@@ -166,83 +196,144 @@ class DbMongo(DbBase):
         except DbException:
             raise
         except Exception as e:  # TODO refine
-            raise DbException(str(e))
+            raise DbException(e)
 
-    def get_one(self, table, filter={}, fail_on_empty=True, fail_on_more=True):
+    def get_one(self, table, q_filter=None, fail_on_empty=True, fail_on_more=True):
+        """
+        Obtain one entry matching q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :param fail_on_empty: If nothing matches filter it returns None unless this flag is set tu True, in which case
+        it raises a DbException
+        :param fail_on_more: If more than one matches filter it returns one of then unless this flag is set tu True, so
+        that it raises a DbException
+        :return: The requested element, or None
+        """
         try:
-            if filter:
-                filter = self._format_filter(filter)
+            db_filter = self._format_filter(q_filter)
             collection = self.db[table]
             if not (fail_on_empty and fail_on_more):
-                return collection.find_one(filter)
-            rows = collection.find(filter)
+                return collection.find_one(db_filter)
+            rows = collection.find(db_filter)
             if rows.count() == 0:
                 if fail_on_empty:
-                    raise DbException("Not found any {} with filter='{}'".format(table[:-1], filter),
+                    raise DbException("Not found any {} with filter='{}'".format(table[:-1], q_filter),
                                       HTTPStatus.NOT_FOUND)
                 return None
             elif rows.count() > 1:
                 if fail_on_more:
-                    raise DbException("Found more than one {} with filter='{}'".format(table[:-1], filter),
+                    raise DbException("Found more than one {} with filter='{}'".format(table[:-1], q_filter),
                                       HTTPStatus.CONFLICT)
             return rows[0]
         except Exception as e:  # TODO refine
-            raise DbException(str(e))
+            raise DbException(e)
 
-    def del_list(self, table, filter={}):
+    def del_list(self, table, q_filter=None):
+        """
+        Deletes all entries that match q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :return: Dict with the number of entries deleted
+        """
         try:
             collection = self.db[table]
-            rows = collection.delete_many(self._format_filter(filter))
+            rows = collection.delete_many(self._format_filter(q_filter))
             return {"deleted": rows.deleted_count}
         except DbException:
             raise
         except Exception as e:  # TODO refine
-            raise DbException(str(e))
+            raise DbException(e)
 
-    def del_one(self, table, filter={}, fail_on_empty=True):
+    def del_one(self, table, q_filter=None, fail_on_empty=True):
+        """
+        Deletes one entry that matches q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :param fail_on_empty: If nothing matches filter it returns '0' deleted unless this flag is set tu True, in
+        which case it raises a DbException
+        :return: Dict with the number of entries deleted
+        """
         try:
             collection = self.db[table]
-            rows = collection.delete_one(self._format_filter(filter))
+            rows = collection.delete_one(self._format_filter(q_filter))
             if rows.deleted_count == 0:
                 if fail_on_empty:
-                    raise DbException("Not found any {} with filter='{}'".format(table[:-1], filter),
+                    raise DbException("Not found any {} with filter='{}'".format(table[:-1], q_filter),
                                       HTTPStatus.NOT_FOUND)
                 return None
             return {"deleted": rows.deleted_count}
         except Exception as e:  # TODO refine
-            raise DbException(str(e))
+            raise DbException(e)
 
     def create(self, table, indata):
+        """
+        Add a new entry at database
+        :param table: collection or table
+        :param indata: content to be added
+        :return: database id of the inserted element. Raises a DbException on error
+        """
         try:
             collection = self.db[table]
             data = collection.insert_one(indata)
             return data.inserted_id
         except Exception as e:  # TODO refine
-            raise DbException(str(e))
+            raise DbException(e)
 
-    def set_one(self, table, filter, update_dict, fail_on_empty=True):
+    def set_one(self, table, q_filter, update_dict, fail_on_empty=True):
+        """
+        Modifies an entry at database
+        :param table: collection or table
+        :param q_filter: Filter
+        :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
+        :param fail_on_empty: If nothing matches filter it returns None unless this flag is set tu True, in which case
+        it raises a DbException
+        :return: Dict with the number of entries modified. None if no matching is found.
+        """
         try:
             collection = self.db[table]
-            rows = collection.update_one(self._format_filter(filter), {"$set": update_dict})
+            rows = collection.update_one(self._format_filter(q_filter), {"$set": update_dict})
             if rows.matched_count == 0:
                 if fail_on_empty:
-                    raise DbException("Not found any {} with filter='{}'".format(table[:-1], filter),
+                    raise DbException("Not found any {} with filter='{}'".format(table[:-1], q_filter),
                                       HTTPStatus.NOT_FOUND)
                 return None
             return {"modified": rows.modified_count}
         except Exception as e:  # TODO refine
-            raise DbException(str(e))
+            raise DbException(e)
 
-    def replace(self, table, id, indata, fail_on_empty=True):
+    def set_list(self, table, q_filter, update_dict):
+        """
+        Modifies al matching entries at database
+        :param table: collection or table
+        :param q_filter: Filter
+        :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
+        :return: Dict with the number of entries modified
+        """
         try:
-            _filter = {"_id": id}
             collection = self.db[table]
-            rows = collection.replace_one(_filter, indata)
+            rows = collection.update_many(self._format_filter(q_filter), {"$set": update_dict})
+            return {"modified": rows.modified_count}
+        except Exception as e:  # TODO refine
+            raise DbException(e)
+
+    def replace(self, table, _id, indata, fail_on_empty=True):
+        """
+        Replace the content of an entry
+        :param table: collection or table
+        :param _id: internal database id
+        :param indata: content to replace
+        :param fail_on_empty: If nothing matches filter it returns None unless this flag is set tu True, in which case
+        it raises a DbException
+        :return: Dict with the number of entries replaced
+        """
+        try:
+            db_filter = {"_id": _id}
+            collection = self.db[table]
+            rows = collection.replace_one(db_filter, indata)
             if rows.matched_count == 0:
                 if fail_on_empty:
-                    raise DbException("Not found any {} with filter='{}'".format(table[:-1], _filter),
-                                      HTTPStatus.NOT_FOUND)
+                    raise DbException("Not found any {} with _id='{}'".format(table[:-1], _id), HTTPStatus.NOT_FOUND)
                 return None
             return {"replaced": rows.modified_count}
         except Exception as e:  # TODO refine
-            raise DbException(str(e))
+            raise DbException(e)

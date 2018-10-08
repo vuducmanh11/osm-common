@@ -1,4 +1,22 @@
+# -*- coding: utf-8 -*-
+
+# Copyright 2018 Telefonica S.A.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import yaml
+import logging
 from http import HTTPStatus
 from copy import deepcopy
 
@@ -8,39 +26,145 @@ __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 class DbException(Exception):
 
     def __init__(self, message, http_code=HTTPStatus.NOT_FOUND):
-        # TODO change to http.HTTPStatus instead of int that allows .value and .name
         self.http_code = http_code
-        Exception.__init__(self, "database exception " + message)
+        Exception.__init__(self, "database exception " + str(message))
 
 
 class DbBase(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, logger_name='db', master_password=None):
+        """
+        Constructor od dbBase
+        :param logger_name: logging name
+        :param master_password: master password used for encrypt decrypt methods
+        """
+        self.logger = logging.getLogger(logger_name)
+        self.master_password = master_password
 
     def db_connect(self, config):
+        """
+        Connect to database
+        :param config: Configuration of database
+        :return: None or raises DbException on error
+        """
         pass
 
     def db_disconnect(self):
+        """
+        Disconnect from database
+        :return: None
+        """
         pass
 
-    def get_list(self, table, filter={}):
+    def get_list(self, table, q_filter=None):
+        """
+        Obtain a list of entries matching q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :return: a list (can be empty) with the found entries. Raises DbException on error
+        """
         raise DbException("Method 'get_list' not implemented")
 
-    def get_one(self, table, filter={}, fail_on_empty=True, fail_on_more=True):
+    def get_one(self, table, q_filter=None, fail_on_empty=True, fail_on_more=True):
+        """
+        Obtain one entry matching q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :param fail_on_empty: If nothing matches filter it returns None unless this flag is set tu True, in which case
+        it raises a DbException
+        :param fail_on_more: If more than one matches filter it returns one of then unless this flag is set tu True, so
+        that it raises a DbException
+        :return: The requested element, or None
+        """
         raise DbException("Method 'get_one' not implemented")
 
-    def create(self, table, indata):
-        raise DbException("Method 'create' not implemented")
-
-    def del_list(self, table, filter={}):
+    def del_list(self, table, q_filter=None):
+        """
+        Deletes all entries that match q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :return: Dict with the number of entries deleted
+        """
         raise DbException("Method 'del_list' not implemented")
 
-    def del_one(self, table, filter={}, fail_on_empty=True):
+    def del_one(self, table, q_filter=None, fail_on_empty=True):
+        """
+        Deletes one entry that matches q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :param fail_on_empty: If nothing matches filter it returns '0' deleted unless this flag is set tu True, in
+        which case it raises a DbException
+        :return: Dict with the number of entries deleted
+        """
         raise DbException("Method 'del_one' not implemented")
 
+    def create(self, table, indata):
+        """
+        Add a new entry at database
+        :param table: collection or table
+        :param indata: content to be added
+        :return: database id of the inserted element. Raises a DbException on error
+        """
+        raise DbException("Method 'create' not implemented")
 
-def deep_update(dict_to_change, dict_reference, key_list=None):
+    def set_one(self, table, q_filter, update_dict, fail_on_empty=True):
+        """
+        Modifies an entry at database
+        :param table: collection or table
+        :param q_filter: Filter
+        :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
+        :param fail_on_empty: If nothing matches filter it returns None unless this flag is set tu True, in which case
+        it raises a DbException
+        :return: Dict with the number of entries modified. None if no matching is found.
+        """
+        raise DbException("Method 'set_one' not implemented")
+
+    def set_list(self, table, q_filter, update_dict):
+        """
+        Modifies al matching entries at database
+        :param table: collection or table
+        :param q_filter: Filter
+        :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
+        :return: Dict with the number of entries modified
+        """
+        raise DbException("Method 'set_list' not implemented")
+
+    def replace(self, table, _id, indata, fail_on_empty=True):
+        """
+        Replace the content of an entry
+        :param table: collection or table
+        :param _id: internal database id
+        :param indata: content to replace
+        :param fail_on_empty: If nothing matches filter it returns None unless this flag is set tu True, in which case
+        it raises a DbException
+        :return: Dict with the number of entries replaced
+        """
+        raise DbException("Method 'replace' not implemented")
+
+    def encrypt(self, value, salt=None):
+        """
+        Encrypt a value
+        :param value: value to be encrypted
+        :param salt: optional salt to be used
+        :return: Encrypted content of value
+        """
+        # for the moment return same value. until all modules call this method
+        return value
+        # raise DbException("Method 'encrypt' not implemented")
+
+    def decrypt(self, value, salt=None):
+        """
+        Decrypt an encrypted value
+        :param value: value to be decrypted
+        :param salt: optional salt to be used
+        :return: Plain content of value
+        """
+        # for the moment return same value. until all modules call this method
+        return value
+        # raise DbException("Method 'decrypt' not implemented")
+
+
+def deep_update_rfc7396(dict_to_change, dict_reference, key_list=None):
     """
     Modifies one dictionary with the information of the other following https://tools.ietf.org/html/rfc7396
     Basically is a recursive python 'dict_to_change.update(dict_reference)', but a value of None is used to delete.
@@ -181,14 +305,14 @@ def deep_update(dict_to_change, dict_reference, key_list=None):
                 elif not isinstance(values_to_edit_delete[index], dict):  # NotDict->Anything
                     array_to_change[index] = deepcopy(values_to_edit_delete[index])
                 elif isinstance(array_to_change[index], dict):  # Dict->Dict
-                    deep_update(array_to_change[index], values_to_edit_delete[index], _key_list)
+                    deep_update_rfc7396(array_to_change[index], values_to_edit_delete[index], _key_list)
                 else:  # Dict->NotDict
                     if isinstance(array_to_change[index], list):  # Dict->List. Check extra array edition
                         if _deep_update_array(array_to_change[index], values_to_edit_delete[index], _key_list):
                             continue
                     array_to_change[index] = deepcopy(values_to_edit_delete[index])
-                    # calling deep_update to delete the None values
-                    deep_update(array_to_change[index], values_to_edit_delete[index], _key_list)
+                    # calling deep_update_rfc7396 to delete the None values
+                    deep_update_rfc7396(array_to_change[index], values_to_edit_delete[index], _key_list)
             except IndexError:
                 raise DbException("Array edition index out of range at '{}'".format(":".join(_key_list)))
 
@@ -203,8 +327,8 @@ def deep_update(dict_to_change, dict_reference, key_list=None):
             _key_list[-1] = str(k)
             insert_value_copy = deepcopy(insert_value)
             if isinstance(insert_value_copy, dict):
-                # calling deep_update to delete the None values
-                deep_update(insert_value_copy, insert_value, _key_list)
+                # calling deep_update_rfc7396 to delete the None values
+                deep_update_rfc7396(insert_value_copy, insert_value, _key_list)
             array_to_change.append(insert_value_copy)
 
         _key_list.pop()
@@ -224,15 +348,20 @@ def deep_update(dict_to_change, dict_reference, key_list=None):
             dict_to_change[k] = deepcopy(dict_reference[k])
         elif k not in dict_to_change:  # Dict->Empty
             dict_to_change[k] = deepcopy(dict_reference[k])
-            # calling deep_update to delete the None values
-            deep_update(dict_to_change[k], dict_reference[k], key_list)
+            # calling deep_update_rfc7396 to delete the None values
+            deep_update_rfc7396(dict_to_change[k], dict_reference[k], key_list)
         elif isinstance(dict_to_change[k], dict):  # Dict->Dict
-            deep_update(dict_to_change[k], dict_reference[k], key_list)
+            deep_update_rfc7396(dict_to_change[k], dict_reference[k], key_list)
         else:       # Dict->NotDict
             if isinstance(dict_to_change[k], list):  # Dict->List. Check extra array edition
                 if _deep_update_array(dict_to_change[k], dict_reference[k], key_list):
                     continue
             dict_to_change[k] = deepcopy(dict_reference[k])
-            # calling deep_update to delete the None values
-            deep_update(dict_to_change[k], dict_reference[k], key_list)
+            # calling deep_update_rfc7396 to delete the None values
+            deep_update_rfc7396(dict_to_change[k], dict_reference[k], key_list)
     key_list.pop()
+
+
+def deep_update(dict_to_change, dict_reference):
+    """ Maintained for backward compatibility. Use deep_update_rfc7396 instead"""
+    return deep_update_rfc7396(dict_to_change, dict_reference)
