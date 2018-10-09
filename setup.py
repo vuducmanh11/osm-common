@@ -38,7 +38,7 @@ setup(
     maintainer_email='alfonso.tiernosepulveda@telefonica.com',
     url='https://osm.etsi.org/gitweb/?p=osm/common.git;a=summary',
     license='Apache 2.0',
-    # setup_requires=['setuptools-version-command'],
+    setup_requires=['setuptools-version-command'],
 
     packages=[_name],
     include_package_data=True,
