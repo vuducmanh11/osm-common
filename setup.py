@@ -22,7 +22,6 @@ from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 _name = "osm_common"
-# VERSION = "4.0.0rc2"
 README = open(os.path.join(here, 'README.rst')).read()
 
 setup(
@@ -30,7 +29,7 @@ setup(
     name=_name,
     description='OSM common utilities',
     long_description=README,
-    version_command=('git describe --tags --long --dirty', 'pep440-git-full'),
+    version_command=('git describe --tags --long --dirty --match v*', 'pep440-git-full'),
     # version=VERSION,
     # python_requires='>3.5',
     author='ETSI OSM',
@@ -49,6 +48,5 @@ setup(
         'pymongo',
         'aiokafka',
         'PyYAML',
-        # 'pip',
     ],
 )

@@ -13,7 +13,10 @@
 
 FROM ubuntu:16.04
 
-RUN apt-get update && apt-get -y install git make python python3 python3-stdeb \
+RUN apt-get update && apt-get -y install git make python python3 python-pip\
     libcurl4-gnutls-dev libgnutls-dev tox python-dev python3-dev \
-    debhelper python-setuptools python-all python3-all apt-utils python-magic
+    debhelper python-setuptools python-all python3-all apt-utils python-magic \
+    python3-pip python-pip && \
+    DEBIAN_FRONTEND=noninteractive pip3 install -U stdeb setuptools-version-command && \
+    DEBIAN_FRONTEND=noninteractive pip2 install -U stdeb
 
