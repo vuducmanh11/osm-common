@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# import asyncio
 from http import HTTPStatus
 
 __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
@@ -56,8 +55,8 @@ class MsgBase(object):
     def read(self, topic):
         raise MsgException("Method 'read' not implemented")
 
-    async def aiowrite(self, topic, key, msg, loop):
+    async def aiowrite(self, topic, key, msg, loop=None):
         raise MsgException("Method 'aiowrite' not implemented")
 
-    async def aioread(self, topic, loop):
+    async def aioread(self, topic, loop=None, callback=None, aiocallback=None, **kwargs):
         raise MsgException("Method 'aioread' not implemented")
