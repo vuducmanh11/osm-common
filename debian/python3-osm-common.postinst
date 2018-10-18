@@ -18,11 +18,12 @@
 ##
 
 echo "POST INSTALL OSM-COMMON"
-echo "Install aiokafka with pip"
+echo "Installing python dependencies via pip..."
 
 pip3 install pip==9.0.3
-pip3 install --upgrade aiokafka
-# pip install --upgrade pyang pyangbind
+pip3 install --upgrade aiokafka==0.4.*
+pip3 install --upgrade pymongo==3.7.*
+pip3 install --upgrade pyyaml==3.*
 
 #Creation of log folder
 mkdir -p /var/log/osm
