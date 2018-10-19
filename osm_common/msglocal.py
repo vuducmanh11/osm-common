@@ -21,6 +21,7 @@ import yaml
 import asyncio
 from osm_common.msgbase import MsgBase, MsgException
 from time import sleep
+from http import HTTPStatus
 
 __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
@@ -54,7 +55,7 @@ class MsgLocal(MsgBase):
         except MsgException:
             raise
         except Exception as e:  # TODO refine
-            raise MsgException(str(e))
+            raise MsgException(str(e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def disconnect(self):
         for f in self.files_read.values():
@@ -82,7 +83,7 @@ class MsgLocal(MsgBase):
             yaml.safe_dump({key: msg}, self.files_write[topic], default_flow_style=True, width=20000)
             self.files_write[topic].flush()
         except Exception as e:  # TODO refine
-            raise MsgException(str(e))
+            raise MsgException(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def read(self, topic, blocks=True):
         """
@@ -113,7 +114,7 @@ class MsgLocal(MsgBase):
                     return None
                 sleep(2)
         except Exception as e:  # TODO refine
-            raise MsgException(str(e))
+            raise MsgException(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     async def aioread(self, topic, loop):
         """
@@ -131,7 +132,7 @@ class MsgLocal(MsgBase):
         except MsgException:
             raise
         except Exception as e:  # TODO refine
-            raise MsgException(str(e))
+            raise MsgException(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     async def aiowrite(self, topic, key, msg, loop=None):
         """

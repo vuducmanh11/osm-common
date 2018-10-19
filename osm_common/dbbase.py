@@ -19,6 +19,8 @@ import yaml
 import logging
 from http import HTTPStatus
 from copy import deepcopy
+from Crypto.Cipher import AES
+from base64 import b64decode, b64encode
 
 __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
@@ -40,14 +42,16 @@ class DbBase(object):
         """
         self.logger = logging.getLogger(logger_name)
         self.master_password = master_password
+        self.secret_key = None
 
-    def db_connect(self, config):
+    def db_connect(self, config, target_version=None):
         """
         Connect to database
         :param config: Configuration of database
+        :param target_version: if provided it checks if database contains required version, raising exception otherwise.
         :return: None or raises DbException on error
         """
-        pass
+        raise DbException("Method 'db_connect' not implemented")
 
     def db_disconnect(self):
         """
@@ -141,27 +145,71 @@ class DbBase(object):
         """
         raise DbException("Method 'replace' not implemented")
 
-    def encrypt(self, value, salt=None):
+    @staticmethod
+    def _join_passwords(passwd_byte, passwd_str):
+        """
+        Modifies passwd_byte with the xor of passwd_str. Used for adding salt, join passwords, etc
+        :param passwd_byte: original password in bytes, 32 byte length
+        :param passwd_str: string salt to be added
+        :return: modified password in bytes
+        """
+        if not passwd_str:
+            return passwd_byte
+        secret_key = bytearray(passwd_byte)
+        for i, b in enumerate(passwd_str.encode()):
+            secret_key[i % 32] ^= b
+        return bytes(secret_key)
+
+    def set_secret_key(self, secret_key):
+        """
+        Set internal secret key used for encryption
+        :param secret_key: byte array length 32 with the secret_key
+        :return: None
+        """
+        assert (len(secret_key) == 32)
+        self.secret_key = self._join_passwords(secret_key, self.master_password)
+
+    def encrypt(self, value, schema_version=None, salt=None):
         """
         Encrypt a value
-        :param value: value to be encrypted
-        :param salt: optional salt to be used
+        :param value: value to be encrypted. It is string/unicode
+        :param schema_version: used for version control. If None or '1.0' no encryption is done.
+               If '1.1' symmetric AES encryption is done
+        :param salt: optional salt to be used. Must be str
         :return: Encrypted content of value
         """
-        # for the moment return same value. until all modules call this method
-        return value
-        # raise DbException("Method 'encrypt' not implemented")
+        if not schema_version or schema_version == '1.0':
+            return value
+        else:
+            if not self.secret_key:
+                raise DbException("Cannot encrypt. Missing secret_key", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+            secret_key = self._join_passwords(self.secret_key, salt)
+            cipher = AES.new(secret_key)
+            padded_private_msg = value + ('\0' * ((16-len(value)) % 16))
+            encrypted_msg = cipher.encrypt(padded_private_msg)
+            encoded_encrypted_msg = b64encode(encrypted_msg)
+            return encoded_encrypted_msg.decode("ascii")
 
-    def decrypt(self, value, salt=None):
+    def decrypt(self, value, schema_version=None, salt=None):
         """
         Decrypt an encrypted value
-        :param value: value to be decrypted
+        :param value: value to be decrypted. It is a base64 string
+        :param schema_version: used for known encryption method used. If None or '1.0' no encryption has been done.
+               If '1.1' symmetric AES encryption has been done
         :param salt: optional salt to be used
         :return: Plain content of value
         """
-        # for the moment return same value. until all modules call this method
-        return value
-        # raise DbException("Method 'decrypt' not implemented")
+        if not schema_version or schema_version == '1.0':
+            return value
+        else:
+            if not self.secret_key:
+                raise DbException("Cannot decrypt. Missing secret_key", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+            secret_key = self._join_passwords(self.secret_key, salt)
+            encrypted_msg = b64decode(value)
+            cipher = AES.new(secret_key)
+            decrypted_msg = cipher.decrypt(encrypted_msg)
+            unpadded_private_msg = decrypted_msg.decode().rstrip('\0')
+            return unpadded_private_msg
 
 
 def deep_update_rfc7396(dict_to_change, dict_reference, key_list=None):

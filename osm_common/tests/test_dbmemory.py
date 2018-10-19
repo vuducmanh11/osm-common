@@ -42,8 +42,8 @@ def del_one_exception_message(filter):
     return "database exception Not found entry with filter='{}'".format(filter)
 
 
-def replace_exception_message(filter):
-    return "database exception Not found entry with filter='{}'".format(filter)
+def replace_exception_message(value):
+    return "database exception Not found entry with _id='{}'".format(value)
 
 
 def test_constructor():
@@ -366,17 +366,18 @@ def test_del_one_generic_exception(db_memory_with_data, fail_on_empty):
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter, indata", [
-    ("test", {}, {"_id": 1, "data": 42}),
-    ("test", {}, {"_id": 3, "data": 42}),
-    ("test", {"_id": 1}, {"_id": 3, "data": 42}),
-    ("test", {"_id": 3}, {"_id": 3, "data": 42}),
-    ("test", {"data": 1}, {"_id": 3, "data": 42}),
-    ("test", {"data": 3}, {"_id": 3, "data": 42}),
-    ("test", {"_id": 1, "data": 1}, {"_id": 3, "data": 42}),
-    ("test", {"_id": 3, "data": 3}, {"_id": 3, "data": 42})])
-def test_replace(db_memory_with_data, table, filter, indata):
-    result = db_memory_with_data.replace(table, filter, indata)
+@pytest.mark.parametrize("table, _id, indata", [
+    ("test", 1, {"_id": 1, "data": 42}),
+    ("test", 1, {"_id": 1, "data": 42, "kk": 34}),
+    ("test", 1, {"_id": 1}),
+    ("test", 2, {"_id": 2, "data": 42}),
+    ("test", 2, {"_id": 2, "data": 42, "kk": 34}),
+    ("test", 2, {"_id": 2}),
+    ("test", 3, {"_id": 3, "data": 42}),
+    ("test", 3, {"_id": 3, "data": 42, "kk": 34}),
+    ("test", 3, {"_id": 3})])
+def test_replace(db_memory_with_data, table, _id, indata):
+    result = db_memory_with_data.replace(table, _id, indata)
     assert result == {"updated": 1}
     assert len(db_memory_with_data.db) == 1
     assert table in db_memory_with_data.db
@@ -384,61 +385,43 @@ def test_replace(db_memory_with_data, table, filter, indata):
     assert indata in db_memory_with_data.db[table]
 
 
-@pytest.mark.parametrize("table, filter, indata", [
-    ("test", {}, {'_id': 1, 'data': 1}),
-    ("test", {}, {'_id': 2, 'data': 1}),
-    ("test", {}, {'_id': 1, 'data': 2}),
-    ("test", {'_id': 1}, {'_id': 1, 'data': 1}),
-    ("test", {'_id': 1, 'data': 1}, {'_id': 1, 'data': 1}),
-    ("test_table", {}, {'_id': 1, 'data': 1}),
-    ("test_table", {}, {'_id': 2, 'data': 1}),
-    ("test_table", {}, {'_id': 1, 'data': 2}),
-    ("test_table", {'_id': 1}, {'_id': 1, 'data': 1}),
-    ("test_table", {'_id': 1, 'data': 1}, {'_id': 1, 'data': 1})])
-def test_replace_without_data_exception(db_memory, table, filter, indata):
+@pytest.mark.parametrize("table, _id, indata", [
+    ("test", 1, {"_id": 1, "data": 42}),
+    ("test", 2, {"_id": 2}),
+    ("test", 3, {"_id": 3})])
+def test_replace_without_data_exception(db_memory, table, _id, indata):
     with pytest.raises(DbException) as excinfo:
-        db_memory.replace(table, filter, indata, fail_on_empty=True)
-    assert str(excinfo.value) == (empty_exception_message() + replace_exception_message(filter))
+        db_memory.replace(table, _id, indata, fail_on_empty=True)
+    assert str(excinfo.value) == (replace_exception_message(_id))
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter, indata", [
-    ("test", {}, {'_id': 1, 'data': 1}),
-    ("test", {}, {'_id': 2, 'data': 1}),
-    ("test", {}, {'_id': 1, 'data': 2}),
-    ("test", {'_id': 1}, {'_id': 1, 'data': 1}),
-    ("test", {'_id': 1, 'data': 1}, {'_id': 1, 'data': 1}),
-    ("test_table", {}, {'_id': 1, 'data': 1}),
-    ("test_table", {}, {'_id': 2, 'data': 1}),
-    ("test_table", {}, {'_id': 1, 'data': 2}),
-    ("test_table", {'_id': 1}, {'_id': 1, 'data': 1}),
-    ("test_table", {'_id': 1, 'data': 1}, {'_id': 1, 'data': 1})])
-def test_replace_without_data_none(db_memory, table, filter, indata):
-    result = db_memory.replace(table, filter, indata, fail_on_empty=False)
+@pytest.mark.parametrize("table, _id, indata", [
+    ("test", 1, {"_id": 1, "data": 42}),
+    ("test", 2, {"_id": 2}),
+    ("test", 3, {"_id": 3})])
+def test_replace_without_data_none(db_memory, table, _id, indata):
+    result = db_memory.replace(table, _id, indata, fail_on_empty=False)
     assert result is None
 
 
-@pytest.mark.parametrize("table, filter, indata", [
-    ("test_table", {}, {'_id': 1, 'data': 1}),
-    ("test_table", {}, {'_id': 2, 'data': 1}),
-    ("test_table", {}, {'_id': 1, 'data': 2}),
-    ("test_table", {'_id': 1}, {'_id': 1, 'data': 1}),
-    ("test_table", {'_id': 1, 'data': 1}, {'_id': 1, 'data': 1})])
-def test_replace_with_data_exception(db_memory_with_data, table, filter, indata):
+@pytest.mark.parametrize("table, _id, indata", [
+    ("test", 11, {"_id": 11, "data": 42}),
+    ("test", 12, {"_id": 12}),
+    ("test", 33, {"_id": 33})])
+def test_replace_with_data_exception(db_memory_with_data, table, _id, indata):
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.replace(table, filter, indata, fail_on_empty=True)
-    assert str(excinfo.value) == (empty_exception_message() + replace_exception_message(filter))
+        db_memory_with_data.replace(table, _id, indata, fail_on_empty=True)
+    assert str(excinfo.value) == (replace_exception_message(_id))
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter, indata", [
-    ("test_table", {}, {'_id': 1, 'data': 1}),
-    ("test_table", {}, {'_id': 2, 'data': 1}),
-    ("test_table", {}, {'_id': 1, 'data': 2}),
-    ("test_table", {'_id': 1}, {'_id': 1, 'data': 1}),
-    ("test_table", {'_id': 1, 'data': 1}, {'_id': 1, 'data': 1})])
-def test_replace_with_data_none(db_memory_with_data, table, filter, indata):
-    result = db_memory_with_data.replace(table, filter, indata, fail_on_empty=False)
+@pytest.mark.parametrize("table, _id, indata", [
+    ("test", 11, {"_id": 11, "data": 42}),
+    ("test", 12, {"_id": 12}),
+    ("test", 33, {"_id": 33})])
+def test_replace_with_data_none(db_memory_with_data, table, _id, indata):
+    result = db_memory_with_data.replace(table, _id, indata, fail_on_empty=False)
     assert result is None
 
 
@@ -447,11 +430,11 @@ def test_replace_with_data_none(db_memory_with_data, table, filter, indata):
     False])
 def test_replace_generic_exception(db_memory_with_data, fail_on_empty):
     table = 'test'
-    filter = {}
+    _id = {}
     indata = {'_id': 1, 'data': 1}
     db_memory_with_data._find = MagicMock(side_effect=Exception())
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.replace(table, filter, indata, fail_on_empty=fail_on_empty)
+        db_memory_with_data.replace(table, _id, indata, fail_on_empty=fail_on_empty)
     assert str(excinfo.value) == empty_exception_message()
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 

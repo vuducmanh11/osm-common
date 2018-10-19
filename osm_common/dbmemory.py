@@ -156,6 +156,8 @@ class DbMemory(DbBase):
                 return None
             self.db[table][i] = deepcopy(indata)
             return {"updated": 1}
+        except DbException:
+            raise
         except Exception as e:  # TODO refine
             raise DbException(str(e))
 

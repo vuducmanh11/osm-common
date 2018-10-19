@@ -22,6 +22,7 @@ from osm_common.dbbase import DbException, DbBase
 from http import HTTPStatus
 from time import time, sleep
 from copy import deepcopy
+from base64 import b64decode
 
 __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
@@ -66,10 +67,11 @@ class DbMongo(DbBase):
         self.client = None
         self.db = None
 
-    def db_connect(self, config):
+    def db_connect(self, config, target_version=None):
         """
         Connect to database
         :param config: Configuration of database
+        :param target_version: if provided it checks if database contains required version, raising exception otherwise.
         :return: None or raises DbException on error
         """
         try:
@@ -83,7 +85,19 @@ class DbMongo(DbBase):
             now = time()
             while True:
                 try:
-                    self.db.users.find_one({"username": "admin"})
+                    version_data = self.get_one("admin", {"_id": "version"}, fail_on_empty=False, fail_on_more=True)
+                    # check database status is ok
+                    if version_data and version_data.get("status") != 'ENABLED':
+                        raise DbException("Wrong database status '{}'".format(version_data.get("status")),
+                                          http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+                    # check version
+                    db_version = None if not version_data else version_data.get("version")
+                    if target_version and target_version != db_version:
+                        raise DbException("Invalid database version {}. Expected {}".format(db_version, target_version))
+                    # get serial
+                    if version_data and version_data.get("serial"):
+                        self.set_secret_key(b64decode(version_data["serial"]))
+                    self.logger.info("Connected to database {} version {}".format(config["name"], db_version))
                     return
                 except errors.ConnectionFailure as e:
                     if time() - now >= self.conn_initial_timout:
