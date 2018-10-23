@@ -34,20 +34,25 @@ class DbException(Exception):
 
 class DbBase(object):
 
-    def __init__(self, logger_name='db', master_password=None):
+    def __init__(self, logger_name='db'):
         """
         Constructor od dbBase
         :param logger_name: logging name
-        :param master_password: master password used for encrypt decrypt methods
         """
         self.logger = logging.getLogger(logger_name)
-        self.master_password = master_password
+        self.master_password = None
         self.secret_key = None
 
     def db_connect(self, config, target_version=None):
         """
         Connect to database
-        :param config: Configuration of database
+        :param config: Configuration of database. Contains among others:
+            host:   database hosst (mandatory)
+            port:   database port (mandatory)
+            name:   database name (mandatory)
+            user:   database username
+            password:   database password
+            masterpassword: database password used for sensible information encryption
         :param target_version: if provided it checks if database contains required version, raising exception otherwise.
         :return: None or raises DbException on error
         """

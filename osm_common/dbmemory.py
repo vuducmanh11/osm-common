@@ -26,8 +26,8 @@ __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
 class DbMemory(DbBase):
 
-    def __init__(self, logger_name='db', master_password=None):
-        super().__init__(logger_name, master_password)
+    def __init__(self, logger_name='db'):
+        super().__init__(logger_name)
         self.db = {}
 
     def db_connect(self, config):
@@ -38,6 +38,7 @@ class DbMemory(DbBase):
         """
         if "logger_name" in config:
             self.logger = logging.getLogger(config["logger_name"])
+        self.master_password = config.get("masterpassword")
 
     @staticmethod
     def _format_filter(q_filter):

@@ -60,4 +60,3 @@ class MsgBase(object):
 
     async def aioread(self, topic, loop=None, callback=None, aiocallback=None, **kwargs):
         raise MsgException("Method 'aioread' not implemented", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
-

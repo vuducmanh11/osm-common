@@ -68,11 +68,11 @@ def test_del_one(db_base):
 class TestEncryption(unittest.TestCase):
     def setUp(self):
         master_password = "Setting a long master password with numbers 123 and capitals AGHBNHD and symbols %&8)!'"
-        db_base1 = DbBase(master_password=master_password)
+        db_base1 = DbBase()
         db_base2 = DbBase()
         # set self.secret_key obtained when connect
-        db_base1.secret_key = DbBase._join_passwords(urandom(32), db_base1.master_password)
-        db_base2.secret_key = DbBase._join_passwords(urandom(32), db_base2.master_password)
+        db_base1.secret_key = DbBase._join_passwords(urandom(32), master_password)
+        db_base2.secret_key = DbBase._join_passwords(urandom(32), None)
         self.db_base = [db_base1, db_base2]
 
     def test_encrypt_decrypt(self):

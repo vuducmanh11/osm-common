@@ -62,8 +62,8 @@ class DbMongo(DbBase):
     conn_initial_timout = 120
     conn_timout = 10
 
-    def __init__(self, logger_name='db', master_password=None):
-        super().__init__(logger_name, master_password)
+    def __init__(self, logger_name='db'):
+        super().__init__(logger_name)
         self.client = None
         self.db = None
 
@@ -77,7 +77,10 @@ class DbMongo(DbBase):
         try:
             if "logger_name" in config:
                 self.logger = logging.getLogger(config["logger_name"])
+            self.master_password = config.get("masterpassword")
             self.client = MongoClient(config["host"], config["port"])
+            # TODO add as parameters also username=config.get("user"), password=config.get("password"))
+            # when all modules are ready
             self.db = self.client[config["name"]]
             if "loglevel" in config:
                 self.logger.setLevel(getattr(logging, config['loglevel']))
