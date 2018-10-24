@@ -48,5 +48,6 @@ setup(
         'pymongo',
         'aiokafka',
         'PyYAML',
+        'pycrypto',
     ],
 )

@@ -24,6 +24,7 @@ pip3 install pip==9.0.3
 pip3 install --upgrade aiokafka==0.4.*
 pip3 install --upgrade pymongo==3.7.*
 pip3 install --upgrade pyyaml==3.*
+# pip3 install pycrypto   added as dependency: python3-crypto
 
 #Creation of log folder
 mkdir -p /var/log/osm

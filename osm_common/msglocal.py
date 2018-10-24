@@ -116,7 +116,7 @@ class MsgLocal(MsgBase):
         except Exception as e:  # TODO refine
             raise MsgException(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    async def aioread(self, topic, loop):
+    async def aioread(self, topic, loop=None, callback=None, aiocallback=None, **kwargs):
         """
         Asyncio read from one or several topics. It blocks
         :param topic: can be str: single topic; or str list: several topics
@@ -127,7 +127,12 @@ class MsgLocal(MsgBase):
             while True:
                 msg = self.read(topic, blocks=False)
                 if msg:
-                    return msg
+                    if callback:
+                        callback(*msg, **kwargs)
+                    elif aiocallback:
+                        await aiocallback(*msg, **kwargs)
+                    else:
+                        return msg
                 await asyncio.sleep(2, loop=loop)
         except MsgException:
             raise
