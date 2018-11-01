@@ -11,6 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This Dockerfile is intented for devops and deb package generation
+#
+# Use Dockerfile.local for running osm/LCM in a docker container from source
+
 FROM ubuntu:16.04
 
 RUN apt-get update && apt-get -y install git make python python3 python-pip\
