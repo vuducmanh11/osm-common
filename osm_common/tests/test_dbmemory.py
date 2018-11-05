@@ -9,15 +9,15 @@ from osm_common.dbmemory import DbMemory
 __author__ = 'Eduardo Sousa <eduardosousa@av.it.pt>'
 
 
-@pytest.fixture
-def db_memory():
-    db = DbMemory()
+@pytest.fixture(scope="function", params=[True, False])
+def db_memory(request):
+    db = DbMemory(lock=request.param)
     return db
 
 
-@pytest.fixture
-def db_memory_with_data():
-    db = DbMemory()
+@pytest.fixture(scope="function", params=[True, False])
+def db_memory_with_data(request):
+    db = DbMemory(lock=request.param)
 
     db.create("test", {"_id": 1, "data": 1})
     db.create("test", {"_id": 2, "data": 2})
@@ -30,16 +30,16 @@ def empty_exception_message():
     return 'database exception '
 
 
-def get_one_exception_message(filter):
-    return "database exception Not found entry with filter='{}'".format(filter)
+def get_one_exception_message(db_filter):
+    return "database exception Not found entry with filter='{}'".format(db_filter)
 
 
-def get_one_multiple_exception_message(filter):
-    return "database exception Found more than one entry with filter='{}'".format(filter)
+def get_one_multiple_exception_message(db_filter):
+    return "database exception Found more than one entry with filter='{}'".format(db_filter)
 
 
-def del_one_exception_message(filter):
-    return "database exception Not found entry with filter='{}'".format(filter)
+def del_one_exception_message(db_filter):
+    return "database exception Not found entry with filter='{}'".format(db_filter)
 
 
 def replace_exception_message(value):
@@ -72,17 +72,17 @@ def test_db_disconnect(db_memory):
     db_memory.db_disconnect()
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {}),
     ("test", {"_id": 1}),
     ("test", {"data": 1}),
     ("test", {"_id": 1, "data": 1})])
-def test_get_list_with_empty_db(db_memory, table, filter):
-    result = db_memory.get_list(table, filter)
+def test_get_list_with_empty_db(db_memory, table, db_filter):
+    result = db_memory.get_list(table, db_filter)
     assert len(result) == 0
 
 
-@pytest.mark.parametrize("table, filter, expected_data", [
+@pytest.mark.parametrize("table, db_filter, expected_data", [
     ("test", {}, [{"_id": 1, "data": 1}, {"_id": 2, "data": 2}, {"_id": 3, "data": 3}]),
     ("test", {"_id": 1}, [{"_id": 1, "data": 1}]),
     ("test", {"data": 1}, [{"_id": 1, "data": 1}]),
@@ -97,8 +97,8 @@ def test_get_list_with_empty_db(db_memory, table, filter):
     ("test_table", {"_id": 1}, []),
     ("test_table", {"data": 1}, []),
     ("test_table", {"_id": 1, "data": 1}, [])])
-def test_get_list_with_non_empty_db(db_memory_with_data, table, filter, expected_data):
-    result = db_memory_with_data.get_list(table, filter)
+def test_get_list_with_non_empty_db(db_memory_with_data, table, db_filter, expected_data):
+    result = db_memory_with_data.get_list(table, db_filter)
     assert len(result) == len(expected_data)
     for data in expected_data:
         assert data in result
@@ -106,15 +106,15 @@ def test_get_list_with_non_empty_db(db_memory_with_data, table, filter, expected
 
 def test_get_list_exception(db_memory_with_data):
     table = 'test'
-    filter = {}
+    db_filter = {}
     db_memory_with_data._find = MagicMock(side_effect=Exception())
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.get_list(table, filter)
+        db_memory_with_data.get_list(table, db_filter)
     assert str(excinfo.value) == empty_exception_message()
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter, expected_data", [
+@pytest.mark.parametrize("table, db_filter, expected_data", [
     ("test", {"_id": 1}, {"_id": 1, "data": 1}),
     ("test", {"_id": 2}, {"_id": 2, "data": 2}),
     ("test", {"_id": 3}, {"_id": 3, "data": 3}),
@@ -124,8 +124,8 @@ def test_get_list_exception(db_memory_with_data):
     ("test", {"_id": 1, "data": 1}, {"_id": 1, "data": 1}),
     ("test", {"_id": 2, "data": 2}, {"_id": 2, "data": 2}),
     ("test", {"_id": 3, "data": 3}, {"_id": 3, "data": 3})])
-def test_get_one(db_memory_with_data, table, filter, expected_data):
-    result = db_memory_with_data.get_one(table, filter)
+def test_get_one(db_memory_with_data, table, db_filter, expected_data):
+    result = db_memory_with_data.get_one(table, db_filter)
     assert result == expected_data
     assert len(db_memory_with_data.db) == 1
     assert table in db_memory_with_data.db
@@ -133,10 +133,10 @@ def test_get_one(db_memory_with_data, table, filter, expected_data):
     assert result in db_memory_with_data.db[table]
 
 
-@pytest.mark.parametrize("table, filter, expected_data", [
+@pytest.mark.parametrize("table, db_filter, expected_data", [
     ("test", {}, {"_id": 1, "data": 1})])
-def test_get_one_with_multiple_results(db_memory_with_data, table, filter, expected_data):
-    result = db_memory_with_data.get_one(table, filter, fail_on_more=False)
+def test_get_one_with_multiple_results(db_memory_with_data, table, db_filter, expected_data):
+    result = db_memory_with_data.get_one(table, db_filter, fail_on_more=False)
     assert result == expected_data
     assert len(db_memory_with_data.db) == 1
     assert table in db_memory_with_data.db
@@ -146,83 +146,83 @@ def test_get_one_with_multiple_results(db_memory_with_data, table, filter, expec
 
 def test_get_one_with_multiple_results_exception(db_memory_with_data):
     table = "test"
-    filter = {}
+    db_filter = {}
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.get_one(table, filter)
-    assert str(excinfo.value) == (empty_exception_message() + get_one_multiple_exception_message(filter))
+        db_memory_with_data.get_one(table, db_filter)
+    assert str(excinfo.value) == (empty_exception_message() + get_one_multiple_exception_message(db_filter))
     # assert excinfo.value.http_code == http.HTTPStatus.CONFLICT
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {"_id": 4}),
     ("test", {"data": 4}),
     ("test", {"_id": 4, "data": 4}),
     ("test_table", {"_id": 4}),
     ("test_table", {"data": 4}),
     ("test_table", {"_id": 4, "data": 4})])
-def test_get_one_with_non_empty_db_exception(db_memory_with_data, table, filter):
+def test_get_one_with_non_empty_db_exception(db_memory_with_data, table, db_filter):
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.get_one(table, filter)
-    assert str(excinfo.value) == (empty_exception_message() + get_one_exception_message(filter))
+        db_memory_with_data.get_one(table, db_filter)
+    assert str(excinfo.value) == (empty_exception_message() + get_one_exception_message(db_filter))
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {"_id": 4}),
     ("test", {"data": 4}),
     ("test", {"_id": 4, "data": 4}),
     ("test_table", {"_id": 4}),
     ("test_table", {"data": 4}),
     ("test_table", {"_id": 4, "data": 4})])
-def test_get_one_with_non_empty_db_none(db_memory_with_data, table, filter):
-    result = db_memory_with_data.get_one(table, filter, fail_on_empty=False)
+def test_get_one_with_non_empty_db_none(db_memory_with_data, table, db_filter):
+    result = db_memory_with_data.get_one(table, db_filter, fail_on_empty=False)
     assert result is None
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {"_id": 4}),
     ("test", {"data": 4}),
     ("test", {"_id": 4, "data": 4}),
     ("test_table", {"_id": 4}),
     ("test_table", {"data": 4}),
     ("test_table", {"_id": 4, "data": 4})])
-def test_get_one_with_empty_db_exception(db_memory, table, filter):
+def test_get_one_with_empty_db_exception(db_memory, table, db_filter):
     with pytest.raises(DbException) as excinfo:
-        db_memory.get_one(table, filter)
-    assert str(excinfo.value) == (empty_exception_message() + get_one_exception_message(filter))
+        db_memory.get_one(table, db_filter)
+    assert str(excinfo.value) == (empty_exception_message() + get_one_exception_message(db_filter))
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {"_id": 4}),
     ("test", {"data": 4}),
     ("test", {"_id": 4, "data": 4}),
     ("test_table", {"_id": 4}),
     ("test_table", {"data": 4}),
     ("test_table", {"_id": 4, "data": 4})])
-def test_get_one_with_empty_db_none(db_memory, table, filter):
-    result = db_memory.get_one(table, filter, fail_on_empty=False)
+def test_get_one_with_empty_db_none(db_memory, table, db_filter):
+    result = db_memory.get_one(table, db_filter, fail_on_empty=False)
     assert result is None
 
 
 def test_get_one_generic_exception(db_memory_with_data):
     table = 'test'
-    filter = {}
+    db_filter = {}
     db_memory_with_data._find = MagicMock(side_effect=Exception())
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.get_one(table, filter)
+        db_memory_with_data.get_one(table, db_filter)
     assert str(excinfo.value) == empty_exception_message()
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter, expected_data", [
+@pytest.mark.parametrize("table, db_filter, expected_data", [
     ("test", {}, []),
     ("test", {"_id": 1}, [{"_id": 2, "data": 2}, {"_id": 3, "data": 3}]), 
     ("test", {"_id": 2}, [{"_id": 1, "data": 1}, {"_id": 3, "data": 3}]), 
     ("test", {"_id": 1, "data": 1}, [{"_id": 2, "data": 2}, {"_id": 3, "data": 3}]),
     ("test", {"_id": 2, "data": 2}, [{"_id": 1, "data": 1}, {"_id": 3, "data": 3}])])
-def test_del_list_with_non_empty_db(db_memory_with_data, table, filter, expected_data):
-    result = db_memory_with_data.del_list(table, filter)
+def test_del_list_with_non_empty_db(db_memory_with_data, table, db_filter, expected_data):
+    result = db_memory_with_data.del_list(table, db_filter)
     assert result["deleted"] == (3 - len(expected_data))
     assert len(db_memory_with_data.db) == 1
     assert table in db_memory_with_data.db
@@ -231,7 +231,7 @@ def test_del_list_with_non_empty_db(db_memory_with_data, table, filter, expected
         assert data in db_memory_with_data.db[table]
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {}),
     ("test", {"_id": 1}),
     ("test", {"_id": 2}),
@@ -239,22 +239,22 @@ def test_del_list_with_non_empty_db(db_memory_with_data, table, filter, expected
     ("test", {"data": 2}),
     ("test", {"_id": 1, "data": 1}),
     ("test", {"_id": 2, "data": 2})])
-def test_del_list_with_empty_db(db_memory, table, filter):
-    result = db_memory.del_list(table, filter)
+def test_del_list_with_empty_db(db_memory, table, db_filter):
+    result = db_memory.del_list(table, db_filter)
     assert result['deleted'] == 0
 
 
 def test_del_list_generic_exception(db_memory_with_data):
     table = 'test'
-    filter = {}
+    db_filter = {}
     db_memory_with_data._find = MagicMock(side_effect=Exception())
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.del_list(table, filter)
+        db_memory_with_data.del_list(table, db_filter)
     assert str(excinfo.value) == empty_exception_message()
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter, data", [
+@pytest.mark.parametrize("table, db_filter, data", [
     ("test", {}, {"_id": 1, "data": 1}),
     ("test", {"_id": 1}, {"_id": 1, "data": 1}),
     ("test", {"data": 1}, {"_id": 1, "data": 1}),
@@ -262,8 +262,8 @@ def test_del_list_generic_exception(db_memory_with_data):
     ("test", {"_id": 2}, {"_id": 2, "data": 2}),
     ("test", {"data": 2}, {"_id": 2, "data": 2}),
     ("test", {"_id": 2, "data": 2}, {"_id": 2, "data": 2})])
-def test_del_one(db_memory_with_data, table, filter, data):
-    result = db_memory_with_data.del_one(table, filter)
+def test_del_one(db_memory_with_data, table, db_filter, data):
+    result = db_memory_with_data.del_one(table, db_filter)
     assert result == {"deleted": 1}
     assert len(db_memory_with_data.db) == 1
     assert table in db_memory_with_data.db
@@ -271,7 +271,7 @@ def test_del_one(db_memory_with_data, table, filter, data):
     assert data not in db_memory_with_data.db[table]
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {}),
     ("test", {"_id": 1}),
     ("test", {"_id": 2}),
@@ -286,14 +286,14 @@ def test_del_one(db_memory_with_data, table, filter, data):
     ("test_table", {"data": 2}),
     ("test_table", {"_id": 1, "data": 1}),
     ("test_table", {"_id": 2, "data": 2})])
-def test_del_one_with_empty_db_exception(db_memory, table, filter):
+def test_del_one_with_empty_db_exception(db_memory, table, db_filter):
     with pytest.raises(DbException) as excinfo:
-        db_memory.del_one(table, filter)
-    assert str(excinfo.value) == (empty_exception_message() + del_one_exception_message(filter))
+        db_memory.del_one(table, db_filter)
+    assert str(excinfo.value) == (empty_exception_message() + del_one_exception_message(db_filter))
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {}),
     ("test", {"_id": 1}),
     ("test", {"_id": 2}),
@@ -308,12 +308,12 @@ def test_del_one_with_empty_db_exception(db_memory, table, filter):
     ("test_table", {"data": 2}),
     ("test_table", {"_id": 1, "data": 1}),
     ("test_table", {"_id": 2, "data": 2})])
-def test_del_one_with_empty_db_none(db_memory, table, filter):
-    result = db_memory.del_one(table, filter, fail_on_empty=False)
+def test_del_one_with_empty_db_none(db_memory, table, db_filter):
+    result = db_memory.del_one(table, db_filter, fail_on_empty=False)
     assert result is None
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {"_id": 4}),
     ("test", {"_id": 5}),
     ("test", {"data": 4}),
@@ -327,14 +327,14 @@ def test_del_one_with_empty_db_none(db_memory, table, filter):
     ("test_table", {"data": 2}),
     ("test_table", {"_id": 1, "data": 1}),
     ("test_table", {"_id": 2, "data": 2})])
-def test_del_one_with_non_empty_db_exception(db_memory_with_data, table, filter):
+def test_del_one_with_non_empty_db_exception(db_memory_with_data, table, db_filter):
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.del_one(table, filter)
-    assert str(excinfo.value) == (empty_exception_message() + del_one_exception_message(filter))
+        db_memory_with_data.del_one(table, db_filter)
+    assert str(excinfo.value) == (empty_exception_message() + del_one_exception_message(db_filter))
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
-@pytest.mark.parametrize("table, filter", [
+@pytest.mark.parametrize("table, db_filter", [
     ("test", {"_id": 4}),
     ("test", {"_id": 5}),
     ("test", {"data": 4}),
@@ -348,8 +348,8 @@ def test_del_one_with_non_empty_db_exception(db_memory_with_data, table, filter)
     ("test_table", {"data": 2}),
     ("test_table", {"_id": 1, "data": 1}),
     ("test_table", {"_id": 2, "data": 2})])
-def test_del_one_with_non_empty_db_none(db_memory_with_data, table, filter):
-    result = db_memory_with_data.del_one(table, filter, fail_on_empty=False)
+def test_del_one_with_non_empty_db_none(db_memory_with_data, table, db_filter):
+    result = db_memory_with_data.del_one(table, db_filter, fail_on_empty=False)
     assert result is None
 
 
@@ -358,10 +358,10 @@ def test_del_one_with_non_empty_db_none(db_memory_with_data, table, filter):
     (False)])
 def test_del_one_generic_exception(db_memory_with_data, fail_on_empty):
     table = 'test'
-    filter = {}
+    db_filter = {}
     db_memory_with_data._find = MagicMock(side_effect=Exception())
     with pytest.raises(DbException) as excinfo:
-        db_memory_with_data.del_one(table, filter, fail_on_empty=fail_on_empty)
+        db_memory_with_data.del_one(table, db_filter, fail_on_empty=fail_on_empty)
     assert str(excinfo.value) == empty_exception_message()
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 

@@ -24,19 +24,19 @@ def invalid_path():
     return '/#tweeter/'
 
 
-@pytest.fixture
-def msg_local():
-    msg = MsgLocal()
+@pytest.fixture(scope="function", params=[True, False])
+def msg_local(request):
+    msg = MsgLocal(lock=request.param)
     yield msg
 
+    msg.disconnect()
     if msg.path and msg.path != invalid_path() and msg.path != valid_path():
-        msg.disconnect()
         shutil.rmtree(msg.path)
 
 
-@pytest.fixture
-def msg_local_config():
-    msg = MsgLocal()
+@pytest.fixture(scope="function", params=[True, False])
+def msg_local_config(request):
+    msg = MsgLocal(lock=request.param)
     msg.connect({"path": valid_path() + str(uuid.uuid4())})
     yield msg
 
@@ -45,9 +45,9 @@ def msg_local_config():
         shutil.rmtree(msg.path)
 
 
-@pytest.fixture
-def msg_local_with_data():
-    msg = MsgLocal()
+@pytest.fixture(scope="function", params=[True, False])
+def msg_local_with_data(request):
+    msg = MsgLocal(lock=request.param)
     msg.connect({"path": valid_path() + str(uuid.uuid4())})
 
     msg.write("topic1", "key1", "msg1")
@@ -117,41 +117,49 @@ def test_connect_with_exception(msg_local, config):
 
 
 def test_disconnect(msg_local_config):
+    files_read = msg_local_config.files_read.copy()
+    files_write = msg_local_config.files_write.copy()
     msg_local_config.disconnect()
-    for f in msg_local_config.files_read.values():
+    for f in files_read.values():
         assert f.closed
-    for f in msg_local_config.files_write.values():
+    for f in files_write.values():
         assert f.closed
 
 
 def test_disconnect_with_read(msg_local_config):
     msg_local_config.read('topic1', blocks=False)
     msg_local_config.read('topic2', blocks=False)
+    files_read = msg_local_config.files_read.copy()
+    files_write = msg_local_config.files_write.copy()
     msg_local_config.disconnect()
-    for f in msg_local_config.files_read.values():
+    for f in files_read.values():
         assert f.closed
-    for f in msg_local_config.files_write.values():
+    for f in files_write.values():
         assert f.closed
 
 
 def test_disconnect_with_write(msg_local_with_data):
+    files_read = msg_local_with_data.files_read.copy()
+    files_write = msg_local_with_data.files_write.copy()
     msg_local_with_data.disconnect()
 
-    for f in msg_local_with_data.files_read.values():
+    for f in files_read.values():
         assert f.closed
     
-    for f in msg_local_with_data.files_write.values():
+    for f in files_write.values():
         assert f.closed
 
 
 def test_disconnect_with_read_and_write(msg_local_with_data):
     msg_local_with_data.read('topic1', blocks=False)
     msg_local_with_data.read('topic2', blocks=False)
-    
+    files_read = msg_local_with_data.files_read.copy()
+    files_write = msg_local_with_data.files_write.copy()
+
     msg_local_with_data.disconnect()
-    for f in msg_local_with_data.files_read.values():
+    for f in files_read.values():
         assert f.closed
-    for f in msg_local_with_data.files_write.values():
+    for f in files_write.values():
         assert f.closed
 
 

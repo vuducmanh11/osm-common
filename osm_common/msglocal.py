@@ -35,8 +35,8 @@ One text line per message is used in yaml format.
 
 class MsgLocal(MsgBase):
 
-    def __init__(self, logger_name='msg'):
-        self.logger = logging.getLogger(logger_name)
+    def __init__(self, logger_name='msg', lock=False):
+        super().__init__(logger_name, lock)
         self.path = None
         # create a different file for each topic
         self.files_read = {}
@@ -58,14 +58,16 @@ class MsgLocal(MsgBase):
             raise MsgException(str(e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def disconnect(self):
-        for f in self.files_read.values():
+        for topic, f in self.files_read.items():
             try:
                 f.close()
+                self.files_read[topic] = None
             except Exception:  # TODO refine
                 pass
-        for f in self.files_write.values():
+        for topic, f in self.files_write.items():
             try:
                 f.close()
+                self.files_write[topic] = None
             except Exception:  # TODO refine
                 pass
 
@@ -78,10 +80,11 @@ class MsgLocal(MsgBase):
         :return: None or raises and exception
         """
         try:
-            if topic not in self.files_write:
-                self.files_write[topic] = open(self.path + topic, "a+")
-            yaml.safe_dump({key: msg}, self.files_write[topic], default_flow_style=True, width=20000)
-            self.files_write[topic].flush()
+            with self.lock:
+                if topic not in self.files_write:
+                    self.files_write[topic] = open(self.path + topic, "a+")
+                yaml.safe_dump({key: msg}, self.files_write[topic], default_flow_style=True, width=20000)
+                self.files_write[topic].flush()
         except Exception as e:  # TODO refine
             raise MsgException(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -99,17 +102,18 @@ class MsgLocal(MsgBase):
                 topic_list = (topic, )
             while True:
                 for single_topic in topic_list:
-                    if single_topic not in self.files_read:
-                        self.files_read[single_topic] = open(self.path + single_topic, "a+")
+                    with self.lock:
+                        if single_topic not in self.files_read:
+                            self.files_read[single_topic] = open(self.path + single_topic, "a+")
+                            self.buffer[single_topic] = ""
+                        self.buffer[single_topic] += self.files_read[single_topic].readline()
+                        if not self.buffer[single_topic].endswith("\n"):
+                            continue
+                        msg_dict = yaml.load(self.buffer[single_topic])
                         self.buffer[single_topic] = ""
-                    self.buffer[single_topic] += self.files_read[single_topic].readline()
-                    if not self.buffer[single_topic].endswith("\n"):
-                        continue
-                    msg_dict = yaml.load(self.buffer[single_topic])
-                    self.buffer[single_topic] = ""
-                    assert len(msg_dict) == 1
-                    for k, v in msg_dict.items():
-                        return single_topic, k, v
+                        assert len(msg_dict) == 1
+                        for k, v in msg_dict.items():
+                            return single_topic, k, v
                 if not blocks:
                     return None
                 sleep(2)

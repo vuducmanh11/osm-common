@@ -26,8 +26,8 @@ __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>, " \
 
 
 class MsgKafka(MsgBase):
-    def __init__(self, logger_name='msg'):
-        self.logger = logging.getLogger(logger_name)
+    def __init__(self, logger_name='msg', lock=False):
+        super().__init__(logger_name, lock)
         self.host = None
         self.port = None
         self.consumer = None

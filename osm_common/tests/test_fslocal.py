@@ -22,9 +22,9 @@ def invalid_path():
     return '/#tweeter/'
 
 
-@pytest.fixture
-def fs_local():
-    fs = FsLocal()
+@pytest.fixture(scope="function", params=[True, False])
+def fs_local(request):
+    fs = FsLocal(lock=request.param)
     fs.fs_connect({'path': valid_path()})
     return fs
 

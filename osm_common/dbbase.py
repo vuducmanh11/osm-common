@@ -21,6 +21,8 @@ from http import HTTPStatus
 from copy import deepcopy
 from Crypto.Cipher import AES
 from base64 import b64decode, b64encode
+from osm_common.common_utils import FakeLock
+from threading import Lock
 
 __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
@@ -34,14 +36,26 @@ class DbException(Exception):
 
 class DbBase(object):
 
-    def __init__(self, logger_name='db'):
+    def __init__(self, logger_name='db', lock=False):
         """
-        Constructor od dbBase
+        Constructor of dbBase
         :param logger_name: logging name
+        :param lock: Used to protect simultaneous access to the same instance class by several threads:
+            False, None: Do not protect, this object will only be accessed by one thread
+            True: This object needs to be protected by several threads accessing.
+            Lock object. Use thi Lock for the threads access protection
         """
         self.logger = logging.getLogger(logger_name)
         self.master_password = None
         self.secret_key = None
+        if not lock:
+            self.lock = FakeLock()
+        elif lock is True:
+            self.lock = Lock()
+        elif isinstance(lock, Lock):
+            self.lock = lock
+        else:
+            raise ValueError("lock parameter must be a Lock classclass or boolean")
 
     def db_connect(self, config, target_version=None):
         """

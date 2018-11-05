@@ -15,6 +15,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version = '0.1.12'
-# TODO add package version filling commit id with 0's; e.g.:  '5.0.0.post11+00000000.dirty-1'
-date_version = '2018-11-05'
+
+__author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
+
+
+class FakeLock:
+    """Implements a fake lock that can be called with the "with" statement or acquire, release methods"""
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def acquire(self):
+        pass
+
+    def release(self):
+        pass

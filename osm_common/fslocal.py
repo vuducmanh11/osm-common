@@ -27,8 +27,8 @@ __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
 class FsLocal(FsBase):
 
-    def __init__(self, logger_name='fs'):
-        self.logger = logging.getLogger(logger_name)
+    def __init__(self, logger_name='fs', lock=False):
+        super().__init__(logger_name, lock)
         self.path = None
 
     def get_params(self):

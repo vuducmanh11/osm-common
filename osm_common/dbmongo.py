@@ -62,8 +62,8 @@ class DbMongo(DbBase):
     conn_initial_timout = 120
     conn_timout = 10
 
-    def __init__(self, logger_name='db'):
-        super().__init__(logger_name)
+    def __init__(self, logger_name='db', lock=False):
+        super().__init__(logger_name, lock)
         self.client = None
         self.db = None
 
@@ -204,9 +204,10 @@ class DbMongo(DbBase):
         """
         try:
             result = []
-            collection = self.db[table]
-            db_filter = self._format_filter(q_filter)
-            rows = collection.find(db_filter)
+            with self.lock:
+                collection = self.db[table]
+                db_filter = self._format_filter(q_filter)
+                rows = collection.find(db_filter)
             for row in rows:
                 result.append(row)
             return result
@@ -228,10 +229,11 @@ class DbMongo(DbBase):
         """
         try:
             db_filter = self._format_filter(q_filter)
-            collection = self.db[table]
-            if not (fail_on_empty and fail_on_more):
-                return collection.find_one(db_filter)
-            rows = collection.find(db_filter)
+            with self.lock:
+                collection = self.db[table]
+                if not (fail_on_empty and fail_on_more):
+                    return collection.find_one(db_filter)
+                rows = collection.find(db_filter)
             if rows.count() == 0:
                 if fail_on_empty:
                     raise DbException("Not found any {} with filter='{}'".format(table[:-1], q_filter),
@@ -253,8 +255,9 @@ class DbMongo(DbBase):
         :return: Dict with the number of entries deleted
         """
         try:
-            collection = self.db[table]
-            rows = collection.delete_many(self._format_filter(q_filter))
+            with self.lock:
+                collection = self.db[table]
+                rows = collection.delete_many(self._format_filter(q_filter))
             return {"deleted": rows.deleted_count}
         except DbException:
             raise
@@ -271,8 +274,9 @@ class DbMongo(DbBase):
         :return: Dict with the number of entries deleted
         """
         try:
-            collection = self.db[table]
-            rows = collection.delete_one(self._format_filter(q_filter))
+            with self.lock:
+                collection = self.db[table]
+                rows = collection.delete_one(self._format_filter(q_filter))
             if rows.deleted_count == 0:
                 if fail_on_empty:
                     raise DbException("Not found any {} with filter='{}'".format(table[:-1], q_filter),
@@ -290,8 +294,9 @@ class DbMongo(DbBase):
         :return: database id of the inserted element. Raises a DbException on error
         """
         try:
-            collection = self.db[table]
-            data = collection.insert_one(indata)
+            with self.lock:
+                collection = self.db[table]
+                data = collection.insert_one(indata)
             return data.inserted_id
         except Exception as e:  # TODO refine
             raise DbException(e)
@@ -307,8 +312,9 @@ class DbMongo(DbBase):
         :return: Dict with the number of entries modified. None if no matching is found.
         """
         try:
-            collection = self.db[table]
-            rows = collection.update_one(self._format_filter(q_filter), {"$set": update_dict})
+            with self.lock:
+                collection = self.db[table]
+                rows = collection.update_one(self._format_filter(q_filter), {"$set": update_dict})
             if rows.matched_count == 0:
                 if fail_on_empty:
                     raise DbException("Not found any {} with filter='{}'".format(table[:-1], q_filter),
@@ -327,8 +333,9 @@ class DbMongo(DbBase):
         :return: Dict with the number of entries modified
         """
         try:
-            collection = self.db[table]
-            rows = collection.update_many(self._format_filter(q_filter), {"$set": update_dict})
+            with self.lock:
+                collection = self.db[table]
+                rows = collection.update_many(self._format_filter(q_filter), {"$set": update_dict})
             return {"modified": rows.modified_count}
         except Exception as e:  # TODO refine
             raise DbException(e)
@@ -345,8 +352,9 @@ class DbMongo(DbBase):
         """
         try:
             db_filter = {"_id": _id}
-            collection = self.db[table]
-            rows = collection.replace_one(db_filter, indata)
+            with self.lock:
+                collection = self.db[table]
+                rows = collection.replace_one(db_filter, indata)
             if rows.matched_count == 0:
                 if fail_on_empty:
                     raise DbException("Not found any {} with _id='{}'".format(table[:-1], _id), HTTPStatus.NOT_FOUND)

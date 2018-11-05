@@ -15,7 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from http import HTTPStatus
+from osm_common.common_utils import FakeLock
+from threading import Lock
 
 __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
@@ -40,8 +43,24 @@ class MsgBase(object):
     Base class for all msgXXXX classes
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, logger_name='msg', lock=False):
+        """
+        Constructor of FsBase
+        :param logger_name: logging name
+        :param lock: Used to protect simultaneous access to the same instance class by several threads:
+            False, None: Do not protect, this object will only be accessed by one thread
+            True: This object needs to be protected by several threads accessing.
+            Lock object. Use thi Lock for the threads access protection
+        """
+        self.logger = logging.getLogger(logger_name)
+        if not lock:
+            self.lock = FakeLock()
+        elif lock is True:
+            self.lock = Lock()
+        elif isinstance(lock, Lock):
+            self.lock = lock
+        else:
+            raise ValueError("lock parameter must be a Lock class or boolean")
 
     def connect(self, config):
         pass
