@@ -67,13 +67,17 @@ def test_del_one(db_base):
 
 class TestEncryption(unittest.TestCase):
     def setUp(self):
-        master_password = "Setting a long master password with numbers 123 and capitals AGHBNHD and symbols %&8)!'"
+        master_key = "Setting a long master key with numbers 123 and capitals AGHBNHD and symbols %&8)!'"
         db_base1 = DbBase()
         db_base2 = DbBase()
+        db_base3 = DbBase()
         # set self.secret_key obtained when connect
-        db_base1.secret_key = DbBase._join_passwords(urandom(32), master_password)
-        db_base2.secret_key = DbBase._join_passwords(urandom(32), None)
-        self.db_base = [db_base1, db_base2]
+        db_base1.set_secret_key(master_key, replace=True)
+        db_base1.set_secret_key(urandom(32))
+        db_base2.set_secret_key(None, replace=True)
+        db_base2.set_secret_key(urandom(30))
+        db_base3.set_secret_key(master_key)
+        self.db_bases = [db_base1, db_base2, db_base3]
 
     def test_encrypt_decrypt(self):
         TEST = (
@@ -84,7 +88,7 @@ class TestEncryption(unittest.TestCase):
             (u"plain unicode 5 with salt ! ", "1a000d1a-4a7e-4d9c-8c65-251290183106"),
             (u"plain unicode 6 with usalt ! ", u"1abcdd1a-4a7e-4d9c-8c65-251290183106"),
         )
-        for db_base in self.db_base:
+        for db_base in self.db_bases:
             for value, salt in TEST:
                 # no encryption
                 encrypted = db_base.encrypt(value, schema_version='1.0', salt=salt)
@@ -102,7 +106,7 @@ class TestEncryption(unittest.TestCase):
     def test_encrypt_decrypt_salt(self):
         value = "value to be encrypted!"
         encrypted = []
-        for db_base in self.db_base:
+        for db_base in self.db_bases:
             for salt in (None, "salt 1", "1afd5d1a-4a7e-4d9c-8c65-251290183106"):
                 # encrypt/decrypt
                 encrypted.append(db_base.encrypt(value, schema_version='1.1', salt=salt))
@@ -113,7 +117,7 @@ class TestEncryption(unittest.TestCase):
         for i in range(0, len(encrypted)):
             for j in range(i+1, len(encrypted)):
                 self.assertNotEqual(encrypted[i], encrypted[j],
-                                    "encryption with different salt contains different result")
+                                    "encryption with different salt must contain different result")
 
 
 class TestDeepUpdate(unittest.TestCase):

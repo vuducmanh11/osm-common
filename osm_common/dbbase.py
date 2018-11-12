@@ -46,8 +46,7 @@ class DbBase(object):
             Lock object. Use thi Lock for the threads access protection
         """
         self.logger = logging.getLogger(logger_name)
-        self.master_password = None
-        self.secret_key = None
+        self.secret_key = None  # 32 bytes length array used for encrypt/decrypt
         if not lock:
             self.lock = FakeLock()
         elif lock is True:
@@ -66,7 +65,8 @@ class DbBase(object):
             name:   database name (mandatory)
             user:   database username
             password:   database password
-            masterpassword: database password used for sensible information encryption
+            commonkey: common OSM key used for sensible information encryption
+            materpassword: same as commonkey, for backward compatibility. Deprecated, to be removed in the future
         :param target_version: if provided it checks if database contains required version, raising exception otherwise.
         :return: None or raises DbException on error
         """
@@ -164,29 +164,36 @@ class DbBase(object):
         """
         raise DbException("Method 'replace' not implemented")
 
-    @staticmethod
-    def _join_passwords(passwd_byte, passwd_str):
+    def _join_secret_key(self, update_key):
         """
-        Modifies passwd_byte with the xor of passwd_str. Used for adding salt, join passwords, etc
-        :param passwd_byte: original password in bytes, 32 byte length
-        :param passwd_str: string salt to be added
-        :return: modified password in bytes
+        Returns a xor byte combination of the internal secret_key and the provided update_key.
+        It does not modify the internal secret_key. Used for adding salt, join keys, etc.
+        :param update_key: Can be a string, byte or None. Recommended a long one (e.g. 32 byte length)
+        :return: joined key in bytes with a 32 bytes length. Can be None if both internal secret_key and update_key
+                 are None
         """
-        if not passwd_str:
-            return passwd_byte
-        secret_key = bytearray(passwd_byte)
-        for i, b in enumerate(passwd_str.encode()):
-            secret_key[i % 32] ^= b
-        return bytes(secret_key)
+        if not update_key:
+            return self.secret_key
+        elif isinstance(update_key, str):
+            update_key_bytes = update_key.encode()
+        else:
+            update_key_bytes = update_key
 
-    def set_secret_key(self, secret_key):
+        new_secret_key = bytearray(self.secret_key) if self.secret_key else bytearray(32)
+        for i, b in enumerate(update_key_bytes):
+            new_secret_key[i % 32] ^= b
+        return bytes(new_secret_key)
+
+    def set_secret_key(self, new_secret_key, replace=False):
         """
-        Set internal secret key used for encryption
-        :param secret_key: byte array length 32 with the secret_key
+        Updates internal secret_key used for encryption, with a byte xor
+        :param new_secret_key: string or byte array. It is recommended a 32 byte length
+        :param replace: if True, old value of internal secret_key is ignored and replaced. If false, a byte xor is used
         :return: None
         """
-        assert (len(secret_key) == 32)
-        self.secret_key = self._join_passwords(secret_key, self.master_password)
+        if replace:
+            self.secret_key = None
+        self.secret_key = self._join_secret_key(new_secret_key)
 
     def encrypt(self, value, schema_version=None, salt=None):
         """
@@ -197,12 +204,10 @@ class DbBase(object):
         :param salt: optional salt to be used. Must be str
         :return: Encrypted content of value
         """
-        if not schema_version or schema_version == '1.0':
+        if not self.secret_key or not schema_version or schema_version == '1.0':
             return value
         else:
-            if not self.secret_key:
-                raise DbException("Cannot encrypt. Missing secret_key", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
-            secret_key = self._join_passwords(self.secret_key, salt)
+            secret_key = self._join_secret_key(salt)
             cipher = AES.new(secret_key)
             padded_private_msg = value + ('\0' * ((16-len(value)) % 16))
             encrypted_msg = cipher.encrypt(padded_private_msg)
@@ -218,12 +223,10 @@ class DbBase(object):
         :param salt: optional salt to be used
         :return: Plain content of value
         """
-        if not schema_version or schema_version == '1.0':
+        if not self.secret_key or not schema_version or schema_version == '1.0':
             return value
         else:
-            if not self.secret_key:
-                raise DbException("Cannot decrypt. Missing secret_key", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
-            secret_key = self._join_passwords(self.secret_key, salt)
+            secret_key = self._join_secret_key(salt)
             encrypted_msg = b64decode(value)
             cipher = AES.new(secret_key)
             decrypted_msg = cipher.decrypt(encrypted_msg)

@@ -77,7 +77,9 @@ class DbMongo(DbBase):
         try:
             if "logger_name" in config:
                 self.logger = logging.getLogger(config["logger_name"])
-            self.master_password = config.get("masterpassword")
+            master_key = config.get("commonkey") or config.get("masterpassword")
+            if master_key:
+                self.set_secret_key(master_key)
             self.client = MongoClient(config["host"], config["port"])
             # TODO add as parameters also username=config.get("user"), password=config.get("password"))
             # when all modules are ready

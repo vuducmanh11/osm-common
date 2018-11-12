@@ -38,7 +38,9 @@ class DbMemory(DbBase):
         """
         if "logger_name" in config:
             self.logger = logging.getLogger(config["logger_name"])
-        self.master_password = config.get("masterpassword")
+        master_key = config.get("commonkey") or config.get("masterpassword")
+        if master_key:
+            self.set_secret_key(master_key)
 
     @staticmethod
     def _format_filter(q_filter):
