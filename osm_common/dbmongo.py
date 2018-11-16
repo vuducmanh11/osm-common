@@ -80,8 +80,8 @@ class DbMongo(DbBase):
             master_key = config.get("commonkey") or config.get("masterpassword")
             if master_key:
                 self.set_secret_key(master_key)
-            if config.get("url"):
-                self.client = MongoClient(config["url"])
+            if config.get("uri"):
+                self.client = MongoClient(config["uri"])
             else:
                 self.client = MongoClient(config["host"], config["port"])
             # TODO add as parameters also username=config.get("user"), password=config.get("password"))
