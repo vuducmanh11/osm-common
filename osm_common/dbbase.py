@@ -130,7 +130,7 @@ class DbBase(object):
         """
         raise DbException("Method 'create' not implemented")
 
-    def set_one(self, table, q_filter, update_dict, fail_on_empty=True):
+    def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
         """
         Modifies an entry at database
         :param table: collection or table
@@ -138,6 +138,12 @@ class DbBase(object):
         :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
         :param fail_on_empty: If nothing matches filter it returns None unless this flag is set tu True, in which case
         it raises a DbException
+        :param unset: Plain dictionary with the content to be removed if exist. It is a dot separated keys, value is
+                      ignored. If not exist, it is ignored
+        :param pull: Plain dictionary with the content to be removed from an array. It is a dot separated keys and value
+                     if exist in the array is removed. If not exist, it is ignored
+        :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
+                     is appended to the end of the array
         :return: Dict with the number of entries modified. None if no matching is found.
         """
         raise DbException("Method 'set_one' not implemented")
