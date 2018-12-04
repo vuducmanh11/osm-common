@@ -62,6 +62,9 @@ class FsBase(object):
     def mkdir(self, folder):
         raise FsException("Method 'mkdir' not implemented")
 
+    def dir_rename(self, src, dst):
+        raise FsException("Method 'dir_rename' not implemented")
+
     def file_exists(self, storage):
         raise FsException("Method 'file_exists' not implemented")
 

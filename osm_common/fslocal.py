@@ -63,6 +63,22 @@ class FsLocal(FsBase):
         except Exception as e:
             raise FsException(str(e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    def dir_rename(self, src, dst):
+        """
+        Rename one directory name. If dst exist, it replaces (deletes) existing directory
+        :param src: source directory
+        :param dst: destination directory
+        :return: None or raises and exception
+        """
+        try:
+            if os.path.exists(self.path + dst):
+                rmtree(self.path + dst)
+
+            os.rename(self.path + src, self.path + dst)
+
+        except Exception as e:
+            raise FsException(str(e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+
     def file_exists(self, storage, mode=None):
         """
         Indicates if "storage" file exist
@@ -143,7 +159,7 @@ class FsLocal(FsBase):
 
     def file_delete(self, storage, ignore_non_exist=False):
         """
-        Delete storage content recursivelly
+        Delete storage content recursively
         :param storage: can be a str or list of str
         :param ignore_non_exist: not raise exception if storage does not exist
         :return: None
