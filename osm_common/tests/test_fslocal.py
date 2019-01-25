@@ -112,17 +112,17 @@ def test_mkdir_with_valid_path(fs_local):
     folder_path = valid_path() + folder_name
     fs_local.mkdir(folder_name)
     assert os.path.exists(folder_path)
+    # test idempotency
+    fs_local.mkdir(folder_name)
+    assert os.path.exists(folder_path)
     os.rmdir(folder_path)
 
 
 def test_mkdir_with_exception(fs_local):
     folder_name = str(uuid.uuid4())
-    folder_path = valid_path() + folder_name
-    os.mkdir(folder_path)
     with pytest.raises(FsException) as excinfo:
-        fs_local.mkdir(folder_name)
+        fs_local.mkdir(folder_name + "/" + folder_name)
     assert excinfo.value.http_code == http.HTTPStatus.INTERNAL_SERVER_ERROR
-    os.rmdir(folder_path)
 
 
 @pytest.mark.parametrize("storage, mode, expected", [

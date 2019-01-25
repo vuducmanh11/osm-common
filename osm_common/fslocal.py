@@ -60,6 +60,8 @@ class FsLocal(FsBase):
         """
         try:
             os.mkdir(self.path + folder)
+        except FileExistsError:  # make it idempotent
+            pass
         except Exception as e:
             raise FsException(str(e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -164,12 +166,14 @@ class FsLocal(FsBase):
         :param ignore_non_exist: not raise exception if storage does not exist
         :return: None
         """
-
-        if isinstance(storage, str):
-            f = self.path + storage
-        else:
-            f = self.path + "/".join(storage)
-        if os.path.exists(f):
-            rmtree(f)
-        elif not ignore_non_exist:
-            raise FsException("File {} does not exist".format(storage), http_code=HTTPStatus.NOT_FOUND)
+        try:
+            if isinstance(storage, str):
+                f = self.path + storage
+            else:
+                f = self.path + "/".join(storage)
+            if os.path.exists(f):
+                rmtree(f)
+            elif not ignore_non_exist:
+                raise FsException("File {} does not exist".format(storage), http_code=HTTPStatus.NOT_FOUND)
+        except (IOError, PermissionError) as e:
+            raise FsException("File {} cannot be deleted: {}".format(f, e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
