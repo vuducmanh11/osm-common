@@ -42,7 +42,7 @@ class MsgKafka(MsgBase):
                 self.logger = logging.getLogger(config["logger_name"])
             self.host = config["host"]
             self.port = config["port"]
-            self.loop = asyncio.get_event_loop()
+            self.loop = config.get("loop") or asyncio.get_event_loop()
             self.broker = str(self.host) + ":" + str(self.port)
             self.group_id = config.get("group_id")
 
@@ -84,6 +84,14 @@ class MsgKafka(MsgBase):
             raise MsgException("Error reading {} topic: {}".format(topic, str(e)))
 
     async def aiowrite(self, topic, key, msg, loop=None):
+        """
+        Asyncio write
+        :param topic: str kafka topic
+        :param key: str kafka key
+        :param msg: str or dictionary  kafka message
+        :param loop: asyncio loop. To be DEPRECATED! in near future!!!  loop must be provided inside config at connect
+        :return: None
+        """
 
         if not loop:
             loop = self.loop
@@ -99,9 +107,9 @@ class MsgKafka(MsgBase):
 
     async def aioread(self, topic, loop=None, callback=None, aiocallback=None, **kwargs):
         """
-        Asyncio read from one or several topics. It blocks.
+        Asyncio read from one or several topics.
         :param topic: can be str: single topic; or str list: several topics
-        :param loop: asyncio loop
+        :param loop: asyncio loop. To be DEPRECATED! in near future!!!  loop must be provided inside config at connect
         :param callback: synchronous callback function that will handle the message in kafka bus
         :param aiocallback: async callback function that will handle the message in kafka bus
         :param kwargs: optional keyword arguments for callback function
