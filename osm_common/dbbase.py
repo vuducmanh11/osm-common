@@ -236,7 +236,11 @@ class DbBase(object):
             encrypted_msg = b64decode(value)
             cipher = AES.new(secret_key)
             decrypted_msg = cipher.decrypt(encrypted_msg)
-            unpadded_private_msg = decrypted_msg.decode().rstrip('\0')
+            try:
+                unpadded_private_msg = decrypted_msg.decode().rstrip('\0')
+            except UnicodeDecodeError:
+                raise DbException("Cannot decrypt information. Are you using same COMMONKEY in all OSM components?",
+                                  http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
             return unpadded_private_msg
 
 

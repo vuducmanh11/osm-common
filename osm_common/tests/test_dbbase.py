@@ -22,6 +22,7 @@ import pytest
 import unittest
 from osm_common.dbbase import DbBase, DbException, deep_update
 from os import urandom
+from http import HTTPStatus
 
 
 def exception_message(message):
@@ -137,6 +138,13 @@ class TestEncryption(unittest.TestCase):
             for j in range(i+1, len(encrypted)):
                 self.assertNotEqual(encrypted[i], encrypted[j],
                                     "encryption with different salt must contain different result")
+        # decrypt with a different master key
+        try:
+            decrypted = self.db_bases[-1].decrypt(encrypted[0], schema_version='1.1', salt=None)
+            self.assertNotEqual(encrypted[0], decrypted, "Decryption with different KEY must generate different result")
+        except DbException as e:
+            self.assertEqual(e.http_code, HTTPStatus.INTERNAL_SERVER_ERROR,
+                             "Decryption with different KEY does not provide expected http_code")
 
 
 class TestDeepUpdate(unittest.TestCase):
