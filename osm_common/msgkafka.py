@@ -105,26 +105,32 @@ class MsgKafka(MsgBase):
         finally:
             await self.producer.stop()
 
-    async def aioread(self, topic, loop=None, callback=None, aiocallback=None, **kwargs):
+    async def aioread(self, topic, loop=None, callback=None, aiocallback=None, group_id=None, **kwargs):
         """
         Asyncio read from one or several topics.
         :param topic: can be str: single topic; or str list: several topics
         :param loop: asyncio loop. To be DEPRECATED! in near future!!!  loop must be provided inside config at connect
         :param callback: synchronous callback function that will handle the message in kafka bus
         :param aiocallback: async callback function that will handle the message in kafka bus
+        :param group_id: kafka group_id to use. Can be False (set group_id to None), None (use general group_id provided
+                         at connect inside config), or a group_id string
         :param kwargs: optional keyword arguments for callback function
         :return: If no callback defined, it returns (topic, key, message)
         """
 
         if not loop:
             loop = self.loop
+        if group_id is False:
+            group_id = None
+        elif group_id is None:
+            group_id = self.group_id
         try:
             if isinstance(topic, (list, tuple)):
                 topic_list = topic
             else:
                 topic_list = (topic,)
 
-            self.consumer = AIOKafkaConsumer(loop=loop, bootstrap_servers=self.broker, group_id=self.group_id)
+            self.consumer = AIOKafkaConsumer(loop=loop, bootstrap_servers=self.broker, group_id=group_id)
             await self.consumer.start()
             self.consumer.subscribe(topic_list)
 

@@ -15,6 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version = '0.1.18'
+version = '0.1.19'
 # TODO add package version filling commit id with 0's; e.g.:  '5.0.0.post11+00000000.dirty-1'
-date_version = '2019-01-28'
+date_version = '2019-02-18'

@@ -77,5 +77,5 @@ class MsgBase(object):
     async def aiowrite(self, topic, key, msg, loop=None):
         raise MsgException("Method 'aiowrite' not implemented", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    async def aioread(self, topic, loop=None, callback=None, aiocallback=None, **kwargs):
+    async def aioread(self, topic, loop=None, callback=None, aiocallback=None, group_id=None, **kwargs):
         raise MsgException("Method 'aioread' not implemented", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
