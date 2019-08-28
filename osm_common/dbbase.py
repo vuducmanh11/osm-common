@@ -259,7 +259,7 @@ def deep_update_rfc7396(dict_to_change, dict_reference, key_list=None):
                     Nothing happens if no match is found. If the value is None the matched elements are deleted.
         $key: val   In case a dictionary is passed in yaml format, if looks for all items in the array dict_to_change
                     that are dictionaries and contains this <key> equal to <val>. Several keys can be used by yaml
-                    format '{key: val, key: val, ...}'; and all of them mast match. Nothing happens if no match is
+                    format '{key: val, key: val, ...}'; and all of them must match. Nothing happens if no match is
                     found. If value is None the matched items are deleted, otherwise they are edited.
         $+val       If no match if found (see '$val'), the value is appended to the array. If any match is found nothing
                     is changed. A value of None has not sense.
