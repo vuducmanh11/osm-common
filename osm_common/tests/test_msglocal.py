@@ -200,7 +200,7 @@ def test_write(msg_local_config, topic, key, msg):
     assert os.path.exists(file_path)
 
     with open(file_path, 'r') as stream:
-        assert yaml.load(stream) == {key: msg if not isinstance(msg, tuple) else list(msg)}
+        assert yaml.safe_load(stream) == {key: msg if not isinstance(msg, tuple) else list(msg)}
 
 
 @pytest.mark.parametrize("topic, key, msg, times", [
@@ -225,7 +225,7 @@ def test_write_with_multiple_calls(msg_local_config, topic, key, msg, times):
     with open(file_path, 'r') as stream:
         for _ in range(times):
             data = stream.readline()
-            assert yaml.load(data) == {key: msg if not isinstance(msg, tuple) else list(msg)}
+            assert yaml.safe_load(data) == {key: msg if not isinstance(msg, tuple) else list(msg)}
 
 
 def test_write_exception(msg_local_config):
@@ -453,7 +453,7 @@ def test_aiowrite(msg_local_config, event_loop, topic, key, msg):
     assert os.path.exists(file_path)
 
     with open(file_path, 'r') as stream:
-        assert yaml.load(stream) == {key: msg if not isinstance(msg, tuple) else list(msg)}
+        assert yaml.safe_load(stream) == {key: msg if not isinstance(msg, tuple) else list(msg)}
 
 
 @pytest.mark.parametrize("topic, key, msg, times", [
@@ -477,7 +477,7 @@ def test_aiowrite_with_multiple_calls(msg_local_config, event_loop, topic, key, 
     with open(file_path, 'r') as stream:
         for _ in range(times):
             data = stream.readline()
-            assert yaml.load(data) == {key: msg if not isinstance(msg, tuple) else list(msg)}
+            assert yaml.safe_load(data) == {key: msg if not isinstance(msg, tuple) else list(msg)}
 
 
 def test_aiowrite_exception(msg_local_config, event_loop):

@@ -112,7 +112,7 @@ class MsgLocal(MsgBase):
                         self.buffer[single_topic] += self.files_read[single_topic].readline()
                         if not self.buffer[single_topic].endswith("\n"):
                             continue
-                        msg_dict = yaml.load(self.buffer[single_topic])
+                        msg_dict = yaml.safe_load(self.buffer[single_topic])
                         self.buffer[single_topic] = ""
                         assert len(msg_dict) == 1
                         for k, v in msg_dict.items():

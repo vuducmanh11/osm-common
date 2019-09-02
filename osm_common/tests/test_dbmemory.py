@@ -20,6 +20,8 @@
 import http
 import logging
 import pytest
+import unittest
+from unittest.mock import Mock
 
 from unittest.mock import MagicMock
 from osm_common.dbbase import DbException
@@ -42,6 +44,23 @@ def db_memory_with_data(request):
     db.create("test", {"_id": 2, "data": 2})
     db.create("test", {"_id": 3, "data": 3})
 
+    return db
+
+
+@pytest.fixture(scope="function")
+def db_memory_with_many_data(request):
+    db = DbMemory(lock=False)
+
+    db.create_list("test", [
+        {"_id": 1, "data": {"data2": {"data3": 1}}, "list": [{"a": 1}], "text": "sometext"},
+        {"_id": 2, "data": {"data2": {"data3": 2}}, "list": [{"a": 2}]},
+        {"_id": 3, "data": {"data2": {"data3": 3}}, "list": [{"a": 3}]},
+        {"_id": 4, "data": {"data2": {"data3": 4}}, "list": [{"a": 4}, {"a": 0}]},
+        {"_id": 5, "data": {"data2": {"data3": 5}}, "list": [{"a": 5}]},
+        {"_id": 6, "data": {"data2": {"data3": 6}}, "list": [{"0": {"a": 1}}]},
+        {"_id": 7, "data": {"data2": {"data3": 7}}, "0": {"a": 0}},
+        {"_id": 8, "list": [{"a": 3, "b": 0, "c": [{"a": 3, "b": 1}, {"a": 0, "b": "v"}]}, {"a": 0, "b": 1}]},
+    ])
     return db
 
 
@@ -68,14 +87,14 @@ def replace_exception_message(value):
 def test_constructor():
     db = DbMemory()
     assert db.logger == logging.getLogger('db')
-    assert len(db.db) == 0
+    assert db.db == {}
 
 
 def test_constructor_with_logger():
     logger_name = 'db_local'
     db = DbMemory(logger_name=logger_name)
     assert db.logger == logging.getLogger(logger_name)
-    assert len(db.db) == 0
+    assert db.db == {}
 
 
 def test_db_connect():
@@ -84,7 +103,7 @@ def test_db_connect():
     db = DbMemory()
     db.db_connect(config)
     assert db.logger == logging.getLogger(logger_name)
-    assert len(db.db) == 0
+    assert db.db == {}
 
 
 def test_db_disconnect(db_memory):
@@ -150,6 +169,60 @@ def test_get_one(db_memory_with_data, table, db_filter, expected_data):
     assert table in db_memory_with_data.db
     assert len(db_memory_with_data.db[table]) == 3
     assert result in db_memory_with_data.db[table]
+
+
+@pytest.mark.parametrize("db_filter, expected_ids", [
+    ({}, [1, 2, 3, 4, 5, 6, 7, 8]),
+    ({"_id": 1}, [1]),
+    ({"data.data2.data3": 2}, [2]),
+    ({"data.data2.data3.eq": 2}, [2]),
+    ({"data.data2.data3.neq": 2}, [1, 3, 4, 5, 6, 7, 8]),
+    ({"data.data2.data3": [2, 3]}, [2, 3]),
+    ({"data.data2.data3.gt": 4}, [5, 6, 7]),
+    ({"data.data2.data3.gte": 4}, [4, 5, 6, 7]),
+    ({"data.data2.data3.lt": 4}, [1, 2, 3]),
+    ({"data.data2.data3.lte": 4}, [1, 2, 3, 4]),
+    ({"data.data2.data3.lte": 4.5}, [1, 2, 3, 4]),
+    ({"data.data2.data3.gt": "text"}, []),
+    ({"text.eq": "sometext"}, [1]),
+    ({"text.neq": "sometext"}, [2, 3, 4, 5, 6, 7, 8]),
+    ({"text.eq": "somet"}, []),
+    ({"text.gte": "a"}, [1]),
+    ({"text.gte": "somet"}, [1]),
+    ({"text.gte": "sometext"}, [1]),
+    ({"text.lt": "somet"}, []),
+    ({"data.data2.data3": 2, "data.data2.data4": None}, [2]),
+    ({"data.data2.data3": 2, "data.data2.data4": 5}, []),
+    ({"data.data2.data3": 4}, [4]),
+    ({"data.data2.data3": [3, 4, "e"]}, [3, 4]),
+    ({"data.data2.data3": None}, [8]),
+    ({"data.data2": "4"}, []),
+    ({"list.0.a": 1}, [1, 6]),
+    ({"list.ANYINDEX.a": 1}, [1]),
+    ({"list.a": 3, "list.b": 1}, [8]),
+    ({"list.ANYINDEX.a": 3, "list.ANYINDEX.b": 1}, []),
+    ({"list.ANYINDEX.a": 3, "list.ANYINDEX.c.a": 3}, [8]),
+    ({"list.ANYINDEX.a": 3, "list.ANYINDEX.b": 0}, [8]),
+    ({"list.ANYINDEX.a": 3, "list.ANYINDEX.c.ANYINDEX.a": 0, "list.ANYINDEX.c.ANYINDEX.b": "v"}, [8]),
+    ({"list.ANYINDEX.a": 3, "list.ANYINDEX.c.ANYINDEX.a": 0, "list.ANYINDEX.c.ANYINDEX.b": 1}, []),
+    ({"list.c.b": 1}, [8]),
+    ({"list.c.b": None}, [1, 2, 3, 4, 5, 6, 7]),
+    # ({"data.data2.data3": 4}, []),
+    # ({"data.data2.data3": 4}, []),
+])
+def test_get_list(db_memory_with_many_data, db_filter, expected_ids):
+    result = db_memory_with_many_data.get_list("test", db_filter)
+    assert isinstance(result, list)
+    result_ids = [item["_id"] for item in result]
+    assert len(result) == len(expected_ids), "for db_filter={} result={} expected_ids={}".format(db_filter, result,
+                                                                                                 result_ids)
+    assert result_ids == expected_ids
+    for i in range(len(result)):
+        assert result[i] in db_memory_with_many_data.db["test"]
+
+    assert len(db_memory_with_many_data.db) == 1
+    assert "test" in db_memory_with_many_data.db
+    assert len(db_memory_with_many_data.db["test"]) == 8
 
 
 @pytest.mark.parametrize("table, db_filter, expected_data", [
@@ -236,8 +309,8 @@ def test_get_one_generic_exception(db_memory_with_data):
 
 @pytest.mark.parametrize("table, db_filter, expected_data", [
     ("test", {}, []),
-    ("test", {"_id": 1}, [{"_id": 2, "data": 2}, {"_id": 3, "data": 3}]), 
-    ("test", {"_id": 2}, [{"_id": 1, "data": 1}, {"_id": 3, "data": 3}]), 
+    ("test", {"_id": 1}, [{"_id": 2, "data": 2}, {"_id": 3, "data": 3}]),
+    ("test", {"_id": 2}, [{"_id": 1, "data": 1}, {"_id": 3, "data": 3}]),
     ("test", {"_id": 1, "data": 1}, [{"_id": 2, "data": 2}, {"_id": 3, "data": 3}]),
     ("test", {"_id": 2, "data": 2}, [{"_id": 1, "data": 1}, {"_id": 3, "data": 3}])])
 def test_del_list_with_non_empty_db(db_memory_with_data, table, db_filter, expected_data):
@@ -577,3 +650,59 @@ def test_create_with_exception(db_memory):
         db_memory.create(table, data)
     assert str(excinfo.value) == empty_exception_message()
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.parametrize("db_content, update_dict, expected, message", [
+    ({"a": {"none": None}}, {"a.b.num": "v"}, {"a": {"none": None, "b": {"num": "v"}}}, "create dict"),
+    ({"a": {"none": None}}, {"a.none.num": "v"}, {"a": {"none": {"num": "v"}}}, "create dict over none"),
+    ({"a": {"b": {"num": 4}}}, {"a.b.num": "v"}, {"a": {"b": {"num": "v"}}}, "replace_number"),
+    ({"a": {"b": {"num": 4}}}, {"a.b.num.c.d": "v"}, None, "create dict over number should fail"),
+    ({"a": {"b": {"num": 4}}}, {"a.b": "v"}, {"a": {"b": "v"}}, "replace dict with a string"),
+    ({"a": {"b": {"num": 4}}}, {"a.b": None}, {"a": {"b": None}}, "replace dict with None"),
+    ({"a": [{"b": {"num": 4}}]}, {"a.b.num": "v"}, None, "create dict over list should fail"),
+    ({"a": [{"b": {"num": 4}}]}, {"a.0.b.num": "v"}, {"a": [{"b": {"num": "v"}}]}, "set list"),
+    ({"a": [{"b": {"num": 4}}]}, {"a.3.b.num": "v"},
+     {"a": [{"b": {"num": 4}}, None, None, {"b": {"num": "v"}}]}, "expand list"),
+    ({"a": [[4]]}, {"a.0.0": "v"}, {"a": [["v"]]}, "set nested list"),
+    ({"a": [[4]]}, {"a.0.2": "v"}, {"a": [[4, None, "v"]]}, "expand nested list"),
+    ({"a": [[4]]}, {"a.2.2": "v"}, {"a": [[4], None, {"2": "v"}]}, "expand list and add number key")])
+def test_set_one(db_memory, db_content, update_dict, expected, message):
+    db_memory._find = Mock(return_value=((0, db_content), ))
+    if expected is None:
+        with pytest.raises(DbException) as excinfo:
+            db_memory.set_one("table", {}, update_dict)
+        assert (excinfo.value.http_code == http.HTTPStatus.NOT_FOUND), message
+    else:
+        db_memory.set_one("table", {}, update_dict)
+        assert (db_content == expected), message
+
+
+class TestDbMemory(unittest.TestCase):
+    # TODO to delete. This is cover with pytest test_set_one.
+    def test_set_one(self):
+        test_set = (
+            # (database content, set-content, expected database content (None=fails), message)
+            ({"a": {"none": None}}, {"a.b.num": "v"}, {"a": {"none": None, "b": {"num": "v"}}}, "create dict"),
+            ({"a": {"none": None}}, {"a.none.num": "v"}, {"a": {"none": {"num": "v"}}}, "create dict over none"),
+            ({"a": {"b": {"num": 4}}}, {"a.b.num": "v"}, {"a": {"b": {"num": "v"}}}, "replace_number"),
+            ({"a": {"b": {"num": 4}}}, {"a.b.num.c.d": "v"}, None, "create dict over number should fail"),
+            ({"a": {"b": {"num": 4}}}, {"a.b": "v"}, {"a": {"b": "v"}}, "replace dict with a string"),
+            ({"a": {"b": {"num": 4}}}, {"a.b": None}, {"a": {"b": None}}, "replace dict with None"),
+
+            ({"a": [{"b": {"num": 4}}]}, {"a.b.num": "v"}, None, "create dict over list should fail"),
+            ({"a": [{"b": {"num": 4}}]}, {"a.0.b.num": "v"}, {"a": [{"b": {"num": "v"}}]}, "set list"),
+            ({"a": [{"b": {"num": 4}}]}, {"a.3.b.num": "v"},
+             {"a": [{"b": {"num": 4}}, None, None, {"b": {"num": "v"}}]}, "expand list"),
+            ({"a": [[4]]}, {"a.0.0": "v"}, {"a": [["v"]]}, "set nested list"),
+            ({"a": [[4]]}, {"a.0.2": "v"}, {"a": [[4, None, "v"]]}, "expand nested list"),
+            ({"a": [[4]]}, {"a.2.2": "v"}, {"a": [[4], None, {"2": "v"}]}, "expand list and add number key"),
+        )
+        db_men = DbMemory()
+        db_men._find = Mock()
+        for db_content, update_dict, expected, message in test_set:
+            db_men._find.return_value = ((0, db_content), )
+            if expected is None:
+                self.assertRaises(DbException, db_men.set_one, "table", {}, update_dict)
+            else:
+                db_men.set_one("table", {}, update_dict)
+                self.assertEqual(db_content, expected, message)
