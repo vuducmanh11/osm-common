@@ -88,6 +88,16 @@ class DbBase(object):
         """
         raise DbException("Method 'get_list' not implemented")
 
+    def count(self, table, q_filter=None):
+        """
+        Count the number of entries matching q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :return: number of entries found (can be zero)
+        :raise: DbException on error
+        """
+        raise DbException("Method 'count' not implemented")
+
     def get_one(self, table, q_filter=None, fail_on_empty=True, fail_on_more=True):
         """
         Obtain one entry matching q_filter

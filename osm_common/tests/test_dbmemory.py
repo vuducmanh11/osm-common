@@ -223,6 +223,8 @@ def test_get_list(db_memory_with_many_data, db_filter, expected_ids):
     assert len(db_memory_with_many_data.db) == 1
     assert "test" in db_memory_with_many_data.db
     assert len(db_memory_with_many_data.db["test"]) == 8
+    result = db_memory_with_many_data.count("test", db_filter)
+    assert result == len(expected_ids)
 
 
 @pytest.mark.parametrize("table, db_filter, expected_data", [

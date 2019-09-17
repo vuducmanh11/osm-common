@@ -161,6 +161,22 @@ class DbMemory(DbBase):
         except Exception as e:  # TODO refine
             raise DbException(str(e))
 
+    def count(self, table, q_filter=None):
+        """
+        Count the number of entries matching q_filter
+        :param table: collection or table
+        :param q_filter: Filter
+        :return: number of entries found (can be zero)
+        :raise: DbException on error
+        """
+        try:
+            with self.lock:
+                return sum(1 for x in self._find(table, self._format_filter(q_filter)))
+        except DbException:
+            raise
+        except Exception as e:  # TODO refine
+            raise DbException(str(e))
+
     def get_one(self, table, q_filter=None, fail_on_empty=True, fail_on_more=True):
         """
         Obtain one entry matching q_filter
