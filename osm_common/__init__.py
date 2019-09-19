@@ -15,5 +15,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version = '6.0.2.post1'
-date_version = '2019-08-28'
+version = '6.0.2.post3'
+date_version = '2019-09-19'
