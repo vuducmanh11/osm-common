@@ -17,6 +17,7 @@
 
 import yaml
 import logging
+import re
 from http import HTTPStatus
 from copy import deepcopy
 from Crypto.Cipher import AES
@@ -252,6 +253,28 @@ class DbBase(object):
                 raise DbException("Cannot decrypt information. Are you using same COMMONKEY in all OSM components?",
                                   http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
             return unpadded_private_msg
+
+    def encrypt_decrypt_fields(self, item, action, fields=None, flags=re.I, schema_version=None, salt=None):
+        if not fields:
+            return
+        actions = ['encrypt', 'decrypt']
+        if action.lower() not in actions:
+            raise DbException("Unknown action ({}): Must be one of {}".format(action, actions),
+                              http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+        method = self.encrypt if action.lower() == 'encrypt' else self.decrypt
+
+        def process(item):
+            if isinstance(item, list):
+                for elem in item:
+                    process(elem)
+            elif isinstance(item, dict):
+                for key, val in item.items():
+                    if any(re.search(f, key, flags) for f in fields) and isinstance(val, str):
+                        item[key] = method(val, schema_version, salt)
+                    else:
+                        process(val)
+
+        process(item)
 
 
 def deep_update_rfc7396(dict_to_change, dict_reference, key_list=None):
