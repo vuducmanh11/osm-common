@@ -64,11 +64,15 @@ class MsgKafka(MsgBase):
         :param msg: message content, can be string or dictionary
         :return: None or raises MsgException on failing
         """
-        try:
-            self.loop.run_until_complete(self.aiowrite(topic=topic, key=key, msg=msg))
-
-        except Exception as e:
-            raise MsgException("Error writing {} topic: {}".format(topic, str(e)))
+        retry = 2   # Try two times
+        while retry:
+            try:
+                self.loop.run_until_complete(self.aiowrite(topic=topic, key=key, msg=msg))
+                break
+            except Exception as e:
+                retry -= 1
+                if retry == 0:
+                    raise MsgException("Error writing {} topic: {}".format(topic, str(e)))
 
     def read(self, topic):
         """

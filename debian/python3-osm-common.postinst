@@ -20,8 +20,8 @@
 echo "POST INSTALL OSM-COMMON"
 echo "Installing python dependencies via pip..."
 
-pip3 install --upgrade aiokafka==0.4.*
-pip3 install --upgrade pymongo==3.7.*
+pip3 install --upgrade aiokafka
+pip3 install --upgrade pymongo
 pip3 install --upgrade pyyaml==5.*
 pip3 install pycrypto   # added dependency python3-crypto seems not working
 
