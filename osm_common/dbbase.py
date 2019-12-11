@@ -212,6 +212,13 @@ class DbBase(object):
             self.secret_key = None
         self.secret_key = self._join_secret_key(new_secret_key)
 
+    def get_secret_key(self):
+        """
+        Get the database secret key in case it is not done when "connect" is called. It can happens when database is
+        empty after an initial install. It should skip if secret is already obtained.
+        """
+        pass
+
     def encrypt(self, value, schema_version=None, salt=None):
         """
         Encrypt a value
@@ -221,6 +228,7 @@ class DbBase(object):
         :param salt: optional salt to be used. Must be str
         :return: Encrypted content of value
         """
+        self.get_secret_key()
         if not self.secret_key or not schema_version or schema_version == '1.0':
             return value
         else:
@@ -240,6 +248,7 @@ class DbBase(object):
         :param salt: optional salt to be used
         :return: Plain content of value
         """
+        self.get_secret_key()
         if not self.secret_key or not schema_version or schema_version == '1.0':
             return value
         else:
@@ -257,6 +266,7 @@ class DbBase(object):
     def encrypt_decrypt_fields(self, item, action, fields=None, flags=re.I, schema_version=None, salt=None):
         if not fields:
             return
+        self.get_secret_key()
         actions = ['encrypt', 'decrypt']
         if action.lower() not in actions:
             raise DbException("Unknown action ({}): Must be one of {}".format(action, actions),

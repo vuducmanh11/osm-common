@@ -66,6 +66,22 @@ class DbMongo(DbBase):
         super().__init__(logger_name, lock)
         self.client = None
         self.db = None
+        self.database_key = None
+        self.secret_obtained = False
+        # ^ This is used to know if database serial has been got. Database is inited by NBI, who generates the serial
+        # In case it is not ready when connected, it should be got later on before any decrypt operation
+
+    def get_secret_key(self):
+        if self.secret_obtained:
+            return
+
+        self.secret_key = None
+        if self.database_key:
+            self.set_secret_key(self.database_key)
+        version_data = self.get_one("admin", {"_id": "version"}, fail_on_empty=False, fail_on_more=True)
+        if version_data and version_data.get("serial"):
+            self.set_secret_key(b64decode(version_data["serial"]))
+        self.secret_obtained = True
 
     def db_connect(self, config, target_version=None):
         """
@@ -79,6 +95,7 @@ class DbMongo(DbBase):
                 self.logger = logging.getLogger(config["logger_name"])
             master_key = config.get("commonkey") or config.get("masterpassword")
             if master_key:
+                self.database_key = master_key
                 self.set_secret_key(master_key)
             if config.get("uri"):
                 self.client = MongoClient(config["uri"])
@@ -104,6 +121,7 @@ class DbMongo(DbBase):
                         raise DbException("Invalid database version {}. Expected {}".format(db_version, target_version))
                     # get serial
                     if version_data and version_data.get("serial"):
+                        self.secret_obtained = True
                         self.set_secret_key(b64decode(version_data["serial"]))
                     self.logger.info("Connected to database {} version {}".format(config["name"], db_version))
                     return
