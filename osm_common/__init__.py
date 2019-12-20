@@ -15,5 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version = '6.0.2.post3'
-date_version = '2019-09-19'
+version = '7.0.0.post2'
+date_version = '2019-12-20'
+
+# try to get version from installed package. Skip if fails
+try:
+    from pkg_resources import get_distribution
+    version = get_distribution("osm_common").version
+except Exception:
+    pass
