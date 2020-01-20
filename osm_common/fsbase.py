@@ -82,3 +82,6 @@ class FsBase(object):
 
     def file_delete(self, storage, ignore_non_exist=False):
         raise FsException("Method 'file_delete' not implemented")
+
+    def sync(self):
+        raise FsException("Method 'sync' not implemented")

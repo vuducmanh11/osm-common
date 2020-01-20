@@ -208,8 +208,6 @@ class FsMongo(FsBase):
                 os.chmod(file_path, writing_file.metadata["permissions"])
 
     def get_params(self):
-        self.__update_local_fs()
-
         return {"fs": "mongo", "path": self.path}
 
     def fs_connect(self, config):
@@ -430,3 +428,9 @@ class FsMongo(FsBase):
                 raise FsException("File {} does not exist".format(storage), http_code=HTTPStatus.NOT_FOUND)    
         except IOError as e:
             raise FsException("File {} cannot be deleted: {}".format(f, e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    def sync(self):
+        """
+        Sync from FSMongo to local storage
+        """
+        self.__update_local_fs()
