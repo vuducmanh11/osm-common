@@ -21,4 +21,4 @@ clean:
 package:
 	python3 setup.py --command-packages=stdeb.command sdist_dsc
 	cp debian/python3-osm-common.postinst deb_dist/osm-common*/debian
-	cd deb_dist/osm-common*/  && dpkg-buildpackage -rfakeroot -uc -us
+	cd deb_dist/osm-common*/ && dpkg-buildpackage -rfakeroot -uc -us

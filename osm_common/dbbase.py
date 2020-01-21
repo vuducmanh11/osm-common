@@ -61,7 +61,7 @@ class DbBase(object):
         """
         Connect to database
         :param config: Configuration of database. Contains among others:
-            host:   database hosst (mandatory)
+            host:   database host (mandatory)
             port:   database port (mandatory)
             name:   database name (mandatory)
             user:   database username
