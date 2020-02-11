@@ -382,18 +382,33 @@ class DbMongo(DbBase):
         except Exception as e:  # TODO refine
             raise DbException(e)
 
-    def set_list(self, table, q_filter, update_dict):
+    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None):
         """
         Modifies al matching entries at database
         :param table: collection or table
         :param q_filter: Filter
         :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
+        :param unset: Plain dictionary with the content to be removed if exist. It is a dot separated keys, value is
+                      ignored. If not exist, it is ignored
+        :param pull: Plain dictionary with the content to be removed from an array. It is a dot separated keys and value
+                     if exist in the array is removed. If not exist, it is ignored
+        :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
+                     is appended to the end of the array
         :return: Dict with the number of entries modified
         """
         try:
+            db_oper = {}
+            if update_dict:
+                db_oper["$set"] = update_dict
+            if unset:
+                db_oper["$unset"] = unset
+            if pull:
+                db_oper["$pull"] = pull
+            if push:
+                db_oper["$push"] = push
             with self.lock:
                 collection = self.db[table]
-                rows = collection.update_many(self._format_filter(q_filter), {"$set": update_dict})
+                rows = collection.update_many(self._format_filter(q_filter), db_oper)
             return {"modified": rows.modified_count}
         except Exception as e:  # TODO refine
             raise DbException(e)

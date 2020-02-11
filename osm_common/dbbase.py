@@ -159,12 +159,18 @@ class DbBase(object):
         """
         raise DbException("Method 'set_one' not implemented")
 
-    def set_list(self, table, q_filter, update_dict):
+    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None):
         """
         Modifies al matching entries at database
         :param table: collection or table
         :param q_filter: Filter
         :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
+        :param unset: Plain dictionary with the content to be removed if exist. It is a dot separated keys, value is
+                      ignored. If not exist, it is ignored
+        :param pull: Plain dictionary with the content to be removed from an array. It is a dot separated keys and value
+                     if exist in the array is removed. If not exist, it is ignored
+        :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
+                     is appended to the end of the array
         :return: Dict with the number of entries modified
         """
         raise DbException("Method 'set_list' not implemented")
