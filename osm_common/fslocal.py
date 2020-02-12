@@ -93,6 +93,8 @@ class FsLocal(FsBase):
         else:
             f = "/".join(storage)
         if os.path.exists(self.path + f):
+            if not mode:
+                return True
             if mode == "file" and os.path.isfile(self.path + f):
                 return True
             if mode == "dir" and os.path.isdir(self.path + f):
