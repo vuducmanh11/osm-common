@@ -26,6 +26,7 @@ from unittest.mock import Mock
 from unittest.mock import MagicMock
 from osm_common.dbbase import DbException
 from osm_common.dbmemory import DbMemory
+from copy import deepcopy
 
 __author__ = 'Eduardo Sousa <eduardosousa@av.it.pt>'
 
@@ -719,4 +720,74 @@ class TestDbMemory(unittest.TestCase):
                 self.assertRaises(DbException, db_men.set_one, "table", {}, update_dict)
             else:
                 db_men.set_one("table", {}, update_dict)
+                self.assertEqual(db_content, expected, message)
+
+    def test_set_one_pull(self):
+        example = {"a": [1, "1", 1], "d": {}, "n": None}
+        test_set = (
+            # (database content, set-content, expected database content (None=fails), message)
+            (example, {"a": "1"}, {"a": [1, 1], "d": {}, "n": None}, "pull one item"),
+            (example, {"a": 1}, {"a": ["1"], "d": {}, "n": None}, "pull two items"),
+            (example, {"a": "v"}, example, "pull non existing item"),
+            (example, {"a.6": 1}, example, "pull non existing arrray"),
+            (example, {"d.b.c": 1}, example, "pull non existing arrray2"),
+            (example, {"b": 1}, example, "pull non existing arrray3"),
+            (example, {"d": 1}, None, "pull over dict"),
+            (example, {"n": 1}, None, "pull over None"),
+        )
+        db_men = DbMemory()
+        db_men._find = Mock()
+        for db_content, pull_dict, expected, message in test_set:
+            db_content = deepcopy(db_content)
+            db_men._find.return_value = ((0, db_content), )
+            if expected is None:
+                self.assertRaises(DbException, db_men.set_one, "table", {}, None, fail_on_empty=False, pull=pull_dict)
+            else:
+                db_men.set_one("table", {}, None, pull=pull_dict)
+                self.assertEqual(db_content, expected, message)
+
+    def test_set_one_push(self):
+        example = {"a": [1, "1", 1], "d": {}, "n": None}
+        test_set = (
+            # (database content, set-content, expected database content (None=fails), message)
+            (example, {"d.b.c": 1}, {"a": [1, "1", 1], "d": {"b": {"c": [1]}}, "n": None}, "push non existing arrray2"),
+            (example, {"b": 1}, {"a": [1, "1", 1], "d": {}, "b": [1], "n": None}, "push non existing arrray3"),
+            (example, {"a.6": 1}, {"a": [1, "1", 1, None, None, None, [1]], "d": {}, "n": None},
+             "push non existing arrray"),
+            (example, {"a": 2}, {"a": [1, "1", 1, 2], "d": {}, "n": None}, "push one item"),
+            (example, {"a": {1: 1}}, {"a": [1, "1", 1, {1: 1}], "d": {}, "n": None}, "push a dict"),
+            (example, {"d": 1}, None, "push over dict"),
+            (example, {"n": 1}, None, "push over None"),
+        )
+        db_men = DbMemory()
+        db_men._find = Mock()
+        for db_content, push_dict, expected, message in test_set:
+            db_content = deepcopy(db_content)
+            db_men._find.return_value = ((0, db_content), )
+            if expected is None:
+                self.assertRaises(DbException, db_men.set_one, "table", {}, None, fail_on_empty=False, push=push_dict)
+            else:
+                db_men.set_one("table", {}, None, push=push_dict)
+                self.assertEqual(db_content, expected, message)
+
+    def test_unset_one(self):
+        example = {"a": [1, "1", 1], "d": {}, "n": None}
+        test_set = (
+            # (database content, set-content, expected database content (None=fails), message)
+            (example, {"d.b.c": 1}, example, "unset non existing"),
+            (example, {"b": 1}, example, "unset non existing"),
+            (example, {"a.6": 1}, example, "unset non existing arrray"),
+            (example, {"a": 2}, {"d": {}, "n": None}, "unset array"),
+            (example, {"d": 1}, {"a": [1, "1", 1], "n": None}, "unset dict"),
+            (example, {"n": 1}, {"a": [1, "1", 1], "d": {}}, "unset None"),
+        )
+        db_men = DbMemory()
+        db_men._find = Mock()
+        for db_content, unset_dict, expected, message in test_set:
+            db_content = deepcopy(db_content)
+            db_men._find.return_value = ((0, db_content), )
+            if expected is None:
+                self.assertRaises(DbException, db_men.set_one, "table", {}, None, fail_on_empty=False, unset=unset_dict)
+            else:
+                db_men.set_one("table", {}, None, unset=unset_dict)
                 self.assertEqual(db_content, expected, message)

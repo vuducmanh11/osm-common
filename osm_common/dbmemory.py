@@ -251,6 +251,99 @@ class DbMemory(DbBase):
         except Exception as e:  # TODO refine
             raise DbException(str(e))
 
+    def _update(self, db_item, update_dict, unset=None, pull=None, push=None):
+        """
+        Modifies an entry at database
+        :param db_item: entry of the table to update
+        :param update_dict: Plain dictionary with the content to be updated. It is a dot separated keys and a value
+        :param unset: Plain dictionary with the content to be removed if exist. It is a dot separated keys, value is
+                      ignored. If not exist, it is ignored
+        :param pull: Plain dictionary with the content to be removed from an array. It is a dot separated keys and value
+                     if exist in the array is removed. If not exist, it is ignored
+        :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
+                     is appended to the end of the array
+        :return: True if database has been changed, False if not; Exception on error
+        """
+        def _iterate_keys(k, db_nested, populate=True):
+            k_list = k.split(".")
+            k_item_prev = k_list[0]
+            populated = False
+            for k_item in k_list[1:]:
+                if isinstance(db_nested[k_item_prev], dict):
+                    if k_item not in db_nested[k_item_prev]:
+                        if not populate:
+                            raise DbException("Cannot set '{}', not existing '{}'".format(k, k_item))
+                        populated = True
+                        db_nested[k_item_prev][k_item] = None
+                elif isinstance(db_nested[k_item_prev], list) and k_item.isdigit():
+                    # extend list with Nones if index greater than list
+                    k_item = int(k_item)
+                    if k_item >= len(db_nested[k_item_prev]):
+                        if not populate:
+                            raise DbException("Cannot set '{}', index too large '{}'".format(k, k_item))
+                        populated = True
+                        db_nested[k_item_prev] += [None] * (k_item - len(db_nested[k_item_prev]) + 1)
+                elif db_nested[k_item_prev] is None:
+                    if not populate:
+                        raise DbException("Cannot set '{}', not existing '{}'".format(k, k_item))
+                    populated = True
+                    db_nested[k_item_prev] = {k_item: None}
+                else:  # number, string, boolean, ... or list but with not integer key
+                    raise DbException("Cannot set '{}' on existing '{}={}'".format(k, k_item_prev,
+                                                                                   db_nested[k_item_prev]))
+                db_nested = db_nested[k_item_prev]
+                k_item_prev = k_item
+            return db_nested, k_item_prev, populated
+
+        updated = False
+        try:
+            if update_dict:
+                for dot_k, v in update_dict.items():
+                    dict_to_update, key_to_update, _ = _iterate_keys(dot_k, db_item)
+                    dict_to_update[key_to_update] = v
+                    updated = True
+            if unset:
+                for dot_k in unset:
+                    try:
+                        dict_to_update, key_to_update, _ = _iterate_keys(dot_k, db_item, populate=False)
+                        del dict_to_update[key_to_update]
+                        updated = True
+                    except Exception:
+                        pass
+            if pull:
+                for dot_k, v in pull.items():
+                    try:
+                        dict_to_update, key_to_update, _ = _iterate_keys(dot_k, db_item, populate=False)
+                    except Exception:
+                        continue
+                    if key_to_update not in dict_to_update:
+                        continue
+                    if not isinstance(dict_to_update[key_to_update], list):
+                        raise DbException("Cannot pull '{}'. Target is not a list".format(dot_k))
+                    while v in dict_to_update[key_to_update]:
+                        dict_to_update[key_to_update].remove(v)
+                        updated = True
+            if push:
+                for dot_k, v in push.items():
+                    dict_to_update, key_to_update, populated = _iterate_keys(dot_k, db_item)
+                    if isinstance(dict_to_update, dict) and key_to_update not in dict_to_update:
+                        dict_to_update[key_to_update] = [v]
+                        updated = True
+                    elif populated and dict_to_update[key_to_update] is None:
+                        dict_to_update[key_to_update] = [v]
+                        updated = True
+                    elif not isinstance(dict_to_update[key_to_update], list):
+                        raise DbException("Cannot push '{}'. Target is not a list".format(dot_k))
+                    else:
+                        dict_to_update[key_to_update].append(v)
+                        updated = True
+
+            return updated
+        except DbException:
+            raise
+        except Exception as e:  # TODO refine
+            raise DbException(str(e))
+
     def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
         """
         Modifies an entry at database
@@ -267,42 +360,24 @@ class DbMemory(DbBase):
                      is appended to the end of the array
         :return: Dict with the number of entries modified. None if no matching is found.
         """
-        try:
-            with self.lock:
-                for i, db_item in self._find(table, self._format_filter(q_filter)):
-                    break
-                else:
-                    if fail_on_empty:
-                        raise DbException("Not found entry with _id='{}'".format(q_filter), HTTPStatus.NOT_FOUND)
-                    return None
-                for k, v in update_dict.items():
-                    db_nested = db_item
-                    k_list = k.split(".")
-                    k_item_prev = k_list[0]
-                    for k_item in k_list[1:]:
-                        if isinstance(db_nested[k_item_prev], dict):
-                            if k_item not in db_nested[k_item_prev]:
-                                db_nested[k_item_prev][k_item] = None
-                        elif isinstance(db_nested[k_item_prev], list) and k_item.isdigit():
-                            # extend list with Nones if index greater than list
-                            k_item = int(k_item)
-                            if k_item >= len(db_nested[k_item_prev]):
-                                db_nested[k_item_prev] += [None] * (k_item - len(db_nested[k_item_prev]) + 1)
-                        elif db_nested[k_item_prev] is None:
-                            db_nested[k_item_prev] = {k_item: None}
-                        else:  # number, string, boolean, ... or list but with not integer key
-                            raise DbException("Cannot set '{}' on existing '{}={}'".format(k, k_item_prev,
-                                                                                           db_nested[k_item_prev]))
+        with self.lock:
+            for i, db_item in self._find(table, self._format_filter(q_filter)):
+                updated = self._update(db_item, update_dict, unset=unset, pull=pull, push=push)
+                return {"updated": 1 if updated else 0}
+            else:
+                if fail_on_empty:
+                    raise DbException("Not found entry with _id='{}'".format(q_filter), HTTPStatus.NOT_FOUND)
+                return None
 
-                        db_nested = db_nested[k_item_prev]
-                        k_item_prev = k_item
-
-                    db_nested[k_item_prev] = v
-                return {"updated": 1}
-        except DbException:
-            raise
-        except Exception as e:  # TODO refine
-            raise DbException(str(e))
+    def set_list(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
+        with self.lock:
+            updated = 0
+            for i, db_item in self._find(table, self._format_filter(q_filter)):
+                if self._update(db_item, update_dict, unset=unset, pull=pull, push=push):
+                    updated += 1
+            if i == 0 and fail_on_empty:
+                raise DbException("Not found entry with _id='{}'".format(q_filter), HTTPStatus.NOT_FOUND)
+            return {"updated": updated} if i else None
 
     def replace(self, table, _id, indata, fail_on_empty=True):
         """
