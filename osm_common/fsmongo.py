@@ -22,6 +22,7 @@ from gridfs import GridFSBucket, errors
 import logging
 from http import HTTPStatus
 import os
+import stat
 from osm_common.fsbase import FsBase, FsException
 
 __author__ = "Eduardo Sousa <eduardo.sousa@canonical.com>"
@@ -48,8 +49,9 @@ class GridByteStream(BytesIO):
             if exception_file:
                 raise FsException("Multiple files found", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-            if requested_file.metadata["type"] == "file":
+            if requested_file.metadata["type"] in ("file", "sym"):
                 grid_file = requested_file
+                self.file_type = requested_file.metadata["type"]
             else:
                 raise FsException("Type isn't file", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -84,13 +86,13 @@ class GridByteStream(BytesIO):
                 self._id,
                 self.filename,
                 self,
-                metadata={"type": "file"}
+                metadata={"type": self.file_type}
             )
         else:
             self.fs.upload_from_stream(
                 self.filename,
                 self,
-                metadata={"type": "file"}
+                metadata={"type": self.file_type}
             )
         super(GridByteStream, self).close()
 
@@ -122,8 +124,9 @@ class GridStringStream(StringIO):
             if exception_file:
                 raise FsException("Multiple files found", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-            if requested_file.metadata["type"] == "file":
+            if requested_file.metadata["type"] in ("file", "dir"):
                 grid_file = requested_file
+                self.file_type = requested_file.metadata["type"]
             else:
                 raise FsException("File type isn't file", http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -165,13 +168,13 @@ class GridStringStream(StringIO):
                 self._id,
                 self.filename,
                 stream,
-                metadata={"type": "file"}
+                metadata={"type": self.file_type}
             )
         else:
             self.fs.upload_from_stream(
                 self.filename,
                 stream,
-                metadata={"type": "file"}
+                metadata={"type": self.file_type}
             )
         stream.close()
         super(GridStringStream, self).close()
@@ -197,7 +200,7 @@ class FsMongo(FsBase):
         for directory in dir_cursor:
             os.makedirs(self.path + directory.filename, exist_ok=True)
 
-        file_cursor = self.fs.find({"metadata.type": "file"}, no_cursor_timeout=True)
+        file_cursor = self.fs.find({"metadata.type": {"$elemMatch": ["file", "sym"]}}, no_cursor_timeout=True)
 
         for writing_file in file_cursor:
             file_path = self.path + writing_file.filename
@@ -205,7 +208,13 @@ class FsMongo(FsBase):
             self.fs.download_to_stream(writing_file._id, file_stream)
             file_stream.close()
             if "permissions" in writing_file.metadata:
-                os.chmod(file_path, writing_file.metadata["permissions"])
+                if writing_file.metadata["type"] == "sym":
+                    os.chmod(
+                        file_path, 
+                        writing_file.metadata["permissions"] | stat.S_IFLNK
+                    )
+                else:
+                    os.chmod(file_path, writing_file.metadata["permissions"])
 
     def get_params(self):
         return {"fs": "mongo", "path": self.path}
@@ -302,6 +311,9 @@ class FsMongo(FsBase):
 
             if requested_file.metadata["type"] == mode:
                 return True
+            
+            if requested_file.metadata["type"] == "sym" and mode == "file":
+                return True
 
         return False
 
@@ -338,8 +350,15 @@ class FsMongo(FsBase):
             else:
                 stream = BytesIO()
 
+            if member.isfile():
+                file_type = "file"
+            elif member.issym():
+                file_type = "sym"
+            else:
+                file_type = "dir"
+
             metadata = {
-                "type": "file" if member.isfile() else "dir",
+                "type": file_type,
                 "permissions": member.mode
             }
 
