@@ -711,6 +711,7 @@ class TestDbMemory(unittest.TestCase):
             ({"a": [[4]]}, {"a.0.0": "v"}, {"a": [["v"]]}, "set nested list"),
             ({"a": [[4]]}, {"a.0.2": "v"}, {"a": [[4, None, "v"]]}, "expand nested list"),
             ({"a": [[4]]}, {"a.2.2": "v"}, {"a": [[4], None, {"2": "v"}]}, "expand list and add number key"),
+            ({"a": None}, {"b.c": "v"}, {"a": None, "b": {"c": "v"}}, "expand at root"),
         )
         db_men = DbMemory()
         db_men._find = Mock()

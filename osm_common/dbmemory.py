@@ -268,6 +268,9 @@ class DbMemory(DbBase):
             k_list = k.split(".")
             k_item_prev = k_list[0]
             populated = False
+            if k_item_prev not in db_nested and populate:
+                populated = True
+                db_nested[k_item_prev] = None
             for k_item in k_list[1:]:
                 if isinstance(db_nested[k_item_prev], dict):
                     if k_item not in db_nested[k_item_prev]:
