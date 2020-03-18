@@ -375,12 +375,14 @@ class DbMemory(DbBase):
     def set_list(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
         with self.lock:
             updated = 0
-            for i, db_item in self._find(table, self._format_filter(q_filter)):
+            found = 0
+            for _, db_item in self._find(table, self._format_filter(q_filter)):
+                found += 1
                 if self._update(db_item, update_dict, unset=unset, pull=pull, push=push):
                     updated += 1
-            if i == 0 and fail_on_empty:
-                raise DbException("Not found entry with _id='{}'".format(q_filter), HTTPStatus.NOT_FOUND)
-            return {"updated": updated} if i else None
+            if not found and fail_on_empty:
+                raise DbException("Not found entry with '{}'".format(q_filter), HTTPStatus.NOT_FOUND)
+            return {"updated": updated} if found else None
 
     def replace(self, table, _id, indata, fail_on_empty=True):
         """
