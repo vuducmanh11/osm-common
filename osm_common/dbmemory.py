@@ -372,7 +372,7 @@ class DbMemory(DbBase):
                     raise DbException("Not found entry with _id='{}'".format(q_filter), HTTPStatus.NOT_FOUND)
                 return None
 
-    def set_list(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
+    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None):
         with self.lock:
             updated = 0
             found = 0
@@ -380,8 +380,8 @@ class DbMemory(DbBase):
                 found += 1
                 if self._update(db_item, update_dict, unset=unset, pull=pull, push=push):
                     updated += 1
-            if not found and fail_on_empty:
-                raise DbException("Not found entry with '{}'".format(q_filter), HTTPStatus.NOT_FOUND)
+            # if not found and fail_on_empty:
+            #     raise DbException("Not found entry with '{}'".format(q_filter), HTTPStatus.NOT_FOUND)
             return {"updated": updated} if found else None
 
     def replace(self, table, _id, indata, fail_on_empty=True):
