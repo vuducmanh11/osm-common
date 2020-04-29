@@ -71,6 +71,13 @@ def test_create(db_base):
     assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
 
 
+def test_create_list(db_base):
+    with pytest.raises(DbException) as excinfo:
+        db_base.create_list(None, None)
+    assert str(excinfo.value).startswith(exception_message("Method 'create_list' not implemented"))
+    assert excinfo.value.http_code == http.HTTPStatus.NOT_FOUND
+
+
 def test_del_list(db_base):
     with pytest.raises(DbException) as excinfo:
         db_base.del_list(None, None)

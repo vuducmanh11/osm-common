@@ -414,7 +414,7 @@ class DbMemory(DbBase):
         Add a new entry at database
         :param table: collection or table
         :param indata: content to be added
-        :return: database id of the inserted element. Raises a DbException on error
+        :return: database '_id' of the inserted element. Raises a DbException on error
         """
         try:
             id = indata.get("_id")
@@ -434,7 +434,7 @@ class DbMemory(DbBase):
         Add a new entry at database
         :param table: collection or table
         :param indata_list: list content to be added
-        :return: database ids of the inserted element. Raises a DbException on error
+        :return: list of inserted 'id's. Raises a DbException on error
         """
         try:
             _ids = []

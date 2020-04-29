@@ -23,6 +23,7 @@ from http import HTTPStatus
 from time import time, sleep
 from copy import deepcopy
 from base64 import b64decode
+from uuid import uuid4
 
 __author__ = "Alfonso Tierno <alfonso.tiernosepulveda@telefonica.com>"
 
@@ -340,6 +341,24 @@ class DbMongo(DbBase):
                 collection = self.db[table]
                 data = collection.insert_one(indata)
             return data.inserted_id
+        except Exception as e:  # TODO refine
+            raise DbException(e)
+
+    def create_list(self, table, indata_list):
+        """
+        Add several entries at once
+        :param table: collection or table
+        :param indata_list: content list to be added.
+        :return: the list of inserted '_id's. Exception on error
+        """
+        try:
+            for item in indata_list:
+                if item.get("_id") is None:
+                    item["_id"] = str(uuid4())
+            with self.lock:
+                collection = self.db[table]
+                data = collection.insert_many(indata_list)
+            return data.inserted_ids
         except Exception as e:  # TODO refine
             raise DbException(e)
 

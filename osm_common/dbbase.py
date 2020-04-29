@@ -137,9 +137,19 @@ class DbBase(object):
         Add a new entry at database
         :param table: collection or table
         :param indata: content to be added
-        :return: database id of the inserted element. Raises a DbException on error
+        :return: database '_id' of the inserted element. Raises a DbException on error
         """
         raise DbException("Method 'create' not implemented")
+
+    def create_list(self, table, indata_list):
+        """
+        Add several entries at once
+        :param table: collection or table
+        :param indata_list: list of elements to insert. Each element must be a dictionary.
+            An '_id' key based on random uuid is added at each element if missing
+        :return: list of inserted '_id's. Exception on error
+        """
+        raise DbException("Method 'create_list' not implemented")
 
     def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
         """
