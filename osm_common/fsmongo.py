@@ -195,15 +195,19 @@ class FsMongo(FsBase):
         self.client = None
         self.fs = None
 
-    def __update_local_fs(self):
+    def __update_local_fs(self, from_path=None):
         dir_cursor = self.fs.find({"metadata.type": "dir"}, no_cursor_timeout=True)
 
         for directory in dir_cursor:
+            if from_path and not directory.filename.startswith(from_path):
+                continue
             os.makedirs(self.path + directory.filename, exist_ok=True)
 
         file_cursor = self.fs.find({"metadata.type": {"$in": ["file", "sym"]}}, no_cursor_timeout=True)
 
         for writing_file in file_cursor:
+            if from_path and not writing_file.filename.startswith(from_path):
+                continue
             file_path = self.path + writing_file.filename
 
             if writing_file.metadata["type"] == "sym":
@@ -452,8 +456,10 @@ class FsMongo(FsBase):
         except IOError as e:
             raise FsException("File {} cannot be deleted: {}".format(f, e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    def sync(self):
+    def sync(self, from_path=None):
         """
         Sync from FSMongo to local storage
+        :param from_path: if supplied, only copy content from this path, not all
+        :return: None
         """
-        self.__update_local_fs()
+        self.__update_local_fs(from_path=from_path)

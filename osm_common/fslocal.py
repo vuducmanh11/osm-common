@@ -180,5 +180,5 @@ class FsLocal(FsBase):
         except (IOError, PermissionError) as e:
             raise FsException("File {} cannot be deleted: {}".format(f, e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    def sync(self):
+    def sync(self, from_path=None):
         pass  # Not needed in fslocal
