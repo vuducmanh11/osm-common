@@ -251,7 +251,7 @@ class DbMemory(DbBase):
         except Exception as e:  # TODO refine
             raise DbException(str(e))
 
-    def _update(self, db_item, update_dict, unset=None, pull=None, push=None):
+    def _update(self, db_item, update_dict, unset=None, pull=None, push=None, push_list=None):
         """
         Modifies an entry at database
         :param db_item: entry of the table to update
@@ -262,6 +262,8 @@ class DbMemory(DbBase):
                      if exist in the array is removed. If not exist, it is ignored
         :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
                      is appended to the end of the array
+        :param push_list: Same as push but values are arrays where each item is and appended instead of appending the
+                          whole array
         :return: True if database has been changed, False if not; Exception on error
         """
         def _iterate_keys(k, db_nested, populate=True):
@@ -340,6 +342,24 @@ class DbMemory(DbBase):
                     else:
                         dict_to_update[key_to_update].append(v)
                         updated = True
+            if push_list:
+                for dot_k, v in push_list.items():
+                    if not isinstance(v, list):
+                        raise DbException("Invalid content at push_list, '{}' must be an array".format(dot_k),
+                                          http_code=HTTPStatus.BAD_REQUEST)
+                    dict_to_update, key_to_update, populated = _iterate_keys(dot_k, db_item)
+                    if isinstance(dict_to_update, dict) and key_to_update not in dict_to_update:
+                        dict_to_update[key_to_update] = v.copy()
+                        updated = True
+                    elif populated and dict_to_update[key_to_update] is None:
+                        dict_to_update[key_to_update] = v.copy()
+                        updated = True
+                    elif not isinstance(dict_to_update[key_to_update], list):
+                        raise DbException("Cannot push '{}'. Target is not a list".format(dot_k),
+                                          http_code=HTTPStatus.CONFLICT)
+                    else:
+                        dict_to_update[key_to_update] += v
+                        updated = True
 
             return updated
         except DbException:
@@ -347,7 +367,8 @@ class DbMemory(DbBase):
         except Exception as e:  # TODO refine
             raise DbException(str(e))
 
-    def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
+    def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None,
+                push_list=None):
         """
         Modifies an entry at database
         :param table: collection or table
@@ -361,24 +382,27 @@ class DbMemory(DbBase):
                      if exist in the array is removed. If not exist, it is ignored
         :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
                      is appended to the end of the array
+        :param push_list: Same as push but values are arrays where each item is and appended instead of appending the
+                          whole array
         :return: Dict with the number of entries modified. None if no matching is found.
         """
         with self.lock:
             for i, db_item in self._find(table, self._format_filter(q_filter)):
-                updated = self._update(db_item, update_dict, unset=unset, pull=pull, push=push)
+                updated = self._update(db_item, update_dict, unset=unset, pull=pull, push=push, push_list=push_list)
                 return {"updated": 1 if updated else 0}
             else:
                 if fail_on_empty:
                     raise DbException("Not found entry with _id='{}'".format(q_filter), HTTPStatus.NOT_FOUND)
                 return None
 
-    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None):
+    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None, push_list=None):
+        """Modifies al matching entries at database. Same as push. Do not fail if nothing matches"""
         with self.lock:
             updated = 0
             found = 0
             for _, db_item in self._find(table, self._format_filter(q_filter)):
                 found += 1
-                if self._update(db_item, update_dict, unset=unset, pull=pull, push=push):
+                if self._update(db_item, update_dict, unset=unset, pull=pull, push=push, push_list=push_list):
                     updated += 1
             # if not found and fail_on_empty:
             #     raise DbException("Not found entry with '{}'".format(q_filter), HTTPStatus.NOT_FOUND)

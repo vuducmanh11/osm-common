@@ -362,7 +362,8 @@ class DbMongo(DbBase):
         except Exception as e:  # TODO refine
             raise DbException(e)
 
-    def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None):
+    def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None,
+                push_list=None):
         """
         Modifies an entry at database
         :param table: collection or table
@@ -376,6 +377,8 @@ class DbMongo(DbBase):
                      if exist in the array is removed. If not exist, it is ignored
         :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
                      is appended to the end of the array
+        :param push_list: Same as push but values are arrays where each item is and appended instead of appending the
+                          whole array
         :return: Dict with the number of entries modified. None if no matching is found.
         """
         try:
@@ -386,8 +389,10 @@ class DbMongo(DbBase):
                 db_oper["$unset"] = unset
             if pull:
                 db_oper["$pull"] = pull
-            if push:
-                db_oper["$push"] = push
+            if push or push_list:
+                db_oper["$push"] = push or {}
+                if push_list:
+                    db_oper["$push"].update({k: {"$each": v} for k, v in push_list.items()})
 
             with self.lock:
                 collection = self.db[table]
@@ -401,7 +406,7 @@ class DbMongo(DbBase):
         except Exception as e:  # TODO refine
             raise DbException(e)
 
-    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None):
+    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None, push_list=None):
         """
         Modifies al matching entries at database
         :param table: collection or table
@@ -411,8 +416,10 @@ class DbMongo(DbBase):
                       ignored. If not exist, it is ignored
         :param pull: Plain dictionary with the content to be removed from an array. It is a dot separated keys and value
                      if exist in the array is removed. If not exist, it is ignored
-        :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
-                     is appended to the end of the array
+        :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys, the
+                     single value is appended to the end of the array
+        :param push_list: Same as push but values are arrays where each item is and appended instead of appending the
+                          whole array
         :return: Dict with the number of entries modified
         """
         try:
@@ -423,8 +430,10 @@ class DbMongo(DbBase):
                 db_oper["$unset"] = unset
             if pull:
                 db_oper["$pull"] = pull
-            if push:
-                db_oper["$push"] = push
+            if push or push_list:
+                db_oper["$push"] = push or {}
+                if push_list:
+                    db_oper["$push"].update({k: {"$each": v} for k, v in push_list.items()})
             with self.lock:
                 collection = self.db[table]
                 rows = collection.update_many(self._format_filter(q_filter), db_oper)

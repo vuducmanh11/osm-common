@@ -771,6 +771,33 @@ class TestDbMemory(unittest.TestCase):
                 db_men.set_one("table", {}, None, push=push_dict)
                 self.assertEqual(db_content, expected, message)
 
+    def test_set_one_push_list(self):
+        example = {"a": [1, "1", 1], "d": {}, "n": None}
+        test_set = (
+            # (database content, set-content, expected database content (None=fails), message)
+            (example, {"d.b.c": [1]}, {"a": [1, "1", 1], "d": {"b": {"c": [1]}}, "n": None},
+             "push non existing arrray2"),
+            (example, {"b": [1]}, {"a": [1, "1", 1], "d": {}, "b": [1], "n": None}, "push non existing arrray3"),
+            (example, {"a.6": [1]}, {"a": [1, "1", 1, None, None, None, [1]], "d": {}, "n": None},
+             "push non existing arrray"),
+            (example, {"a": [2, 3]}, {"a": [1, "1", 1, 2, 3], "d": {}, "n": None}, "push two item"),
+            (example, {"a": [{1: 1}]}, {"a": [1, "1", 1, {1: 1}], "d": {}, "n": None}, "push a dict"),
+            (example, {"d": [1]}, None, "push over dict"),
+            (example, {"n": [1]}, None, "push over None"),
+            (example, {"a": 1}, None, "invalid push list non an array"),
+        )
+        db_men = DbMemory()
+        db_men._find = Mock()
+        for db_content, push_list, expected, message in test_set:
+            db_content = deepcopy(db_content)
+            db_men._find.return_value = ((0, db_content), )
+            if expected is None:
+                self.assertRaises(DbException, db_men.set_one, "table", {}, None, fail_on_empty=False,
+                                  push_list=push_list)
+            else:
+                db_men.set_one("table", {}, None, push_list=push_list)
+                self.assertEqual(db_content, expected, message)
+
     def test_unset_one(self):
         example = {"a": [1, "1", 1], "d": {}, "n": None}
         test_set = (
