@@ -279,7 +279,7 @@ class DbBase(object):
                                   http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
             return unpadded_private_msg
 
-    def encrypt_decrypt_fields(self, item, action, fields=None, flags=re.I, schema_version=None, salt=None):
+    def encrypt_decrypt_fields(self, item, action, fields=None, flags=None, schema_version=None, salt=None):
         if not fields:
             return
         self.get_secret_key()
@@ -288,18 +288,20 @@ class DbBase(object):
             raise DbException("Unknown action ({}): Must be one of {}".format(action, actions),
                               http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
         method = self.encrypt if action.lower() == 'encrypt' else self.decrypt
+        if flags is None:
+            flags = re.I
 
-        def process(item):
-            if isinstance(item, list):
-                for elem in item:
+        def process(_item):
+            if isinstance(_item, list):
+                for elem in _item:
                     process(elem)
-            elif isinstance(item, dict):
-                for key, val in item.items():
-                    if any(re.search(f, key, flags) for f in fields) and isinstance(val, str):
-                        item[key] = method(val, schema_version, salt)
+            elif isinstance(_item, dict):
+                for key, val in _item.items():
+                    if isinstance(val, str):
+                        if any(re.search(f, key, flags) for f in fields):
+                            _item[key] = method(val, schema_version, salt)
                     else:
                         process(val)
-
         process(item)
 
 
