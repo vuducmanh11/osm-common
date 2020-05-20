@@ -35,6 +35,7 @@ class GridByteStream(BytesIO):
         self.filename = filename
         self.fs = fs
         self.mode = mode
+        self.file_type = "file"  # Set "file" as default file_type
 
         self.__initialize__()
 
@@ -110,6 +111,7 @@ class GridStringStream(StringIO):
         self.filename = filename
         self.fs = fs
         self.mode = mode
+        self.file_type = "file"  # Set "file" as default file_type
 
         self.__initialize__()
 
@@ -200,7 +202,7 @@ class FsMongo(FsBase):
         for directory in dir_cursor:
             os.makedirs(self.path + directory.filename, exist_ok=True)
 
-        file_cursor = self.fs.find({"metadata.type": {"$elemMatch": ["file", "sym"]}}, no_cursor_timeout=True)
+        file_cursor = self.fs.find({"metadata.type": {"$in": ["file", "sym"]}}, no_cursor_timeout=True)
 
         for writing_file in file_cursor:
             file_path = self.path + writing_file.filename
@@ -210,7 +212,7 @@ class FsMongo(FsBase):
             if "permissions" in writing_file.metadata:
                 if writing_file.metadata["type"] == "sym":
                     os.chmod(
-                        file_path, 
+                        file_path,
                         writing_file.metadata["permissions"] | stat.S_IFLNK
                     )
                 else:
