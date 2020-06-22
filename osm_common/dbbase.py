@@ -152,7 +152,7 @@ class DbBase(object):
         raise DbException("Method 'create_list' not implemented")
 
     def set_one(self, table, q_filter, update_dict, fail_on_empty=True, unset=None, pull=None, push=None,
-                push_list=None):
+                push_list=None, pull_list=None):
         """
         Modifies an entry at database
         :param table: collection or table
@@ -166,13 +166,14 @@ class DbBase(object):
                      if exist in the array is removed. If not exist, it is ignored
         :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
                      is appended to the end of the array
+        :param pull_list: Same as pull but values are arrays where each item is removed from the array
         :param push_list: Same as push but values are arrays where each item is and appended instead of appending the
                           whole array
         :return: Dict with the number of entries modified. None if no matching is found.
         """
         raise DbException("Method 'set_one' not implemented")
 
-    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None, push_list=None):
+    def set_list(self, table, q_filter, update_dict, unset=None, pull=None, push=None, push_list=None, pull_list=None):
         """
         Modifies al matching entries at database
         :param table: collection or table
@@ -184,6 +185,7 @@ class DbBase(object):
                      if exist in the array is removed. If not exist, it is ignored
         :param push: Plain dictionary with the content to be appended to an array. It is a dot separated keys and value
                      is appended to the end of the array
+        :param pull_list: Same as pull but values are arrays where each item is removed from the array
         :param push_list: Same as push but values are arrays where each item is and appended instead of appending the
                           whole array
         :return: Dict with the number of entries modified
