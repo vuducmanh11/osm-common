@@ -22,7 +22,6 @@ from gridfs import GridFSBucket, errors
 import logging
 from http import HTTPStatus
 import os
-import stat
 from osm_common.fsbase import FsBase, FsException
 
 __author__ = "Eduardo Sousa <eduardo.sousa@canonical.com>"
@@ -206,16 +205,17 @@ class FsMongo(FsBase):
 
         for writing_file in file_cursor:
             file_path = self.path + writing_file.filename
-            file_stream = open(file_path, 'wb+')
-            self.fs.download_to_stream(writing_file._id, file_stream)
-            file_stream.close()
-            if "permissions" in writing_file.metadata:
-                if writing_file.metadata["type"] == "sym":
-                    os.chmod(
-                        file_path,
-                        writing_file.metadata["permissions"] | stat.S_IFLNK
-                    )
-                else:
+
+            if writing_file.metadata["type"] == "sym":
+                with BytesIO() as b:
+                    self.fs.download_to_stream(writing_file._id, b)
+                    b.seek(0)
+                    link = b.read().decode("utf-8")
+                os.symlink(link, file_path)
+            else:
+                with open(file_path, 'wb+') as file_stream:
+                    self.fs.download_to_stream(writing_file._id, file_stream)
+                if "permissions" in writing_file.metadata:
                     os.chmod(file_path, writing_file.metadata["permissions"])
 
     def get_params(self):
@@ -349,6 +349,8 @@ class FsMongo(FsBase):
         for member in tar_object.getmembers():
             if member.isfile():
                 stream = tar_object.extractfile(member)
+            elif member.issym():
+                stream = BytesIO(member.linkname.encode("utf-8"))
             else:
                 stream = BytesIO()
 
