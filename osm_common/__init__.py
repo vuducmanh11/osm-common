@@ -15,8 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version = '7.0.0.post4'
-date_version = '2019-01-21'
+version = '8.0.0.post1'
+date_version = '2020-07-01'
 
 # try to get version from installed package. Skip if fails
 try:
