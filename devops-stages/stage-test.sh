@@ -13,6 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-tox -e flake8     && \
-tox -e unittest   && \
-tox -e pytest
+rm -f nosetests.xml
+tox  # flake8 unittest pytest cover
+
