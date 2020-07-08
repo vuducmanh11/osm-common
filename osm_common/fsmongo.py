@@ -16,13 +16,16 @@
 # contact: eduardo.sousa@canonical.com
 ##
 
-from io import BytesIO, StringIO
-from pymongo import MongoClient
-from gridfs import GridFSBucket, errors
-import logging
+import errno
 from http import HTTPStatus
+from io import BytesIO, StringIO
+import logging
 import os
+
+from gridfs import GridFSBucket, errors
 from osm_common.fsbase import FsBase, FsException
+from pymongo import MongoClient
+
 
 __author__ = "Eduardo Sousa <eduardo.sousa@canonical.com>"
 
@@ -215,6 +218,13 @@ class FsMongo(FsBase):
                     self.fs.download_to_stream(writing_file._id, b)
                     b.seek(0)
                     link = b.read().decode("utf-8")
+
+                try:
+                    os.remove(file_path)
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        # This is probably permission denied or worse
+                        raise
                 os.symlink(link, file_path)
             else:
                 with open(file_path, 'wb+') as file_stream:
@@ -317,7 +327,7 @@ class FsMongo(FsBase):
 
             if requested_file.metadata["type"] == mode:
                 return True
-            
+
             if requested_file.metadata["type"] == "sym" and mode == "file":
                 return True
 
@@ -452,7 +462,7 @@ class FsMongo(FsBase):
                 else:
                     self.fs.delete(requested_file._id)
             if not found and not ignore_non_exist:
-                raise FsException("File {} does not exist".format(storage), http_code=HTTPStatus.NOT_FOUND)    
+                raise FsException("File {} does not exist".format(storage), http_code=HTTPStatus.NOT_FOUND)
         except IOError as e:
             raise FsException("File {} cannot be deleted: {}".format(f, e), http_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
