@@ -28,6 +28,8 @@ from gridfs import GridFSBucket
 
 from io import BytesIO
 
+from unittest.mock import Mock
+
 from osm_common.fsbase import FsException
 from osm_common.fsmongo import FsMongo
 from pathlib import Path
@@ -557,7 +559,7 @@ class FakeFS:
                 continue
         assert found
 
-    def find(self, type, no_cursor_timeout=True):
+    def find(self, type, no_cursor_timeout=True, sort=None):
         list = []
         for i, v in self.tar_info.items():
             if type["metadata.type"] == "dir":
@@ -615,3 +617,42 @@ def test_upload_local_fs():
         assert os.path.islink("{}example_tar/symlinks/directory_link".format(path))
     finally:
         subprocess.call(["rm", "-rf", path])
+
+
+def test_upload_mongo_fs():
+    path = "./tmp/"
+
+    subprocess.call(["rm", "-rf", path])
+    try:
+        fs = FsMongo()
+        fs.path = path
+        fs.fs = Mock()
+        fs.fs.find.return_value = {}
+
+        file_content = "Test file content"
+
+        # Create local dir and upload content to fakefs
+        os.mkdir(path)
+        os.mkdir("{}example_local".format(path))
+        os.mkdir("{}example_local/directory".format(path))
+        with open("{}example_local/directory/test_file".format(path), "w+") as test_file:
+            test_file.write(file_content)
+        fs.reverse_sync("example_local")
+
+        assert fs.fs.upload_from_stream.call_count == 2
+
+        # first call to upload_from_stream, dir_name
+        dir_name = "example_local/directory"
+        call_args_0 = fs.fs.upload_from_stream.call_args_list[0]
+        assert call_args_0[0][0] == dir_name
+        assert call_args_0[1].get("metadata").get("type") == "dir"
+
+        # second call to upload_from_stream, dir_name
+        file_name = "example_local/directory/test_file"
+        call_args_1 = fs.fs.upload_from_stream.call_args_list[1]
+        assert call_args_1[0][0] == file_name
+        assert call_args_1[1].get("metadata").get("type") == "file"
+
+    finally:
+        subprocess.call(["rm", "-rf", path])
+        pass

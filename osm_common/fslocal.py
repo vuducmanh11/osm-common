@@ -182,3 +182,6 @@ class FsLocal(FsBase):
 
     def sync(self, from_path=None):
         pass  # Not needed in fslocal
+
+    def reverse_sync(self, from_path):
+        pass  # Not needed in fslocal

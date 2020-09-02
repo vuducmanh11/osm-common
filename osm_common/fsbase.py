@@ -85,3 +85,6 @@ class FsBase(object):
 
     def sync(self, from_path=None):
         raise FsException("Method 'sync' not implemented")
+
+    def reverse_sync(self, from_path):
+        raise FsException("Method 'reverse_sync' not implemented")
