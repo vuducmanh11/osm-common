@@ -99,9 +99,9 @@ class DbMongo(DbBase):
                 self.database_key = master_key
                 self.set_secret_key(master_key)
             if config.get("uri"):
-                self.client = MongoClient(config["uri"])
+                self.client = MongoClient(config["uri"], replicaSet=config.get("replicaset", None))
             else:
-                self.client = MongoClient(config["host"], config["port"])
+                self.client = MongoClient(config["host"], config["port"], replicaSet=config.get("replicaset", None))
             # TODO add as parameters also username=config.get("user"), password=config.get("password"))
             # when all modules are ready
             self.db = self.client[config["name"]]
