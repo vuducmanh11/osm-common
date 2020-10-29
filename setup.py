@@ -44,10 +44,12 @@ setup(
     include_package_data=True,
     # scripts=['nbi.py'],
 
+    # dataclasses is required by aiokafka for Python <3.7.0
     install_requires=[
         'pymongo',
         'aiokafka',
         'PyYAML',
         'pycrypto',
+        'dataclasses',
     ],
 )

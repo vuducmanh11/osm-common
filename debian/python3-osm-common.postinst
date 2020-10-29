@@ -20,6 +20,7 @@
 echo "POST INSTALL OSM-COMMON"
 echo "Installing python dependencies via pip..."
 
+pip3 install dataclasses
 pip3 install --upgrade aiokafka
 pip3 install --upgrade pymongo
 pip3 install --upgrade pyyaml==5.*
