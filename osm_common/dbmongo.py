@@ -157,7 +157,7 @@ class DbMongo(DbBase):
                 # B or C
             A.cont=B&A.cont=C; A.cont=B,C  >> A: {$in: [B, C]}
             A.ncont=B           >> A: {$nin: B}     # must not contain key A or if present not equal to B or if a list,
-                # it must not not contain B
+                # it must not contain B
             A.ncont=B,C; A.ncont=B&A.ncont=C    >> A: {$nin: [B,C]}     # must not contain key A or if present not equal
                 # neither B nor C; or if a list, it must not contain neither B nor C
             A.ne=B&A.ne=C; A.ne=B,C             >> A: {$nin: [B, C]}

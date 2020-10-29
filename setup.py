@@ -46,7 +46,7 @@ setup(
 
     install_requires=[
         'pymongo',
-        'aiokafka',
+        'aiokafka==0.6.0',
         'PyYAML',
         'pycrypto',
     ],
